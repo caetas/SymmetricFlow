@@ -1,0 +1,11 @@
+# This file contains values from Cookiecutter
+
+default_context:
+  project_name: "Symmetric Flow"
+  repo_name: "SymmetricFlow"
+  description: "A short description of the project. No quotes."
+  organization: "TUe"
+  license: "MIT"
+  organization_email: "none@none.pt"
+  line_length: "120"
+  python_minimal_version: "3.11"

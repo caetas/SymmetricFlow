@@ -1,0 +1,8 @@
+name: python3.11
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - virtualenv=20.21.0
+  - pip
