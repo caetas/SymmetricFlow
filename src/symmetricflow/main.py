@@ -1,31 +1,10 @@
-# -*- coding: utf-8 -*-
+from data.Dataloaders import celeb_hq_masked_dataloader
+from utils.util import parse_args_SymmetricFlowMatching
+from models.SymmFM import SymmFM
 
-"""Main module."""
-from logger import FhpLogger
+if __name__ == '__main__':
+    args = parse_args_SymmetricFlowMatching()
+    image_shape, channels, dataloader = celeb_hq_masked_dataloader(1, 0, 'train', args.size)
 
-fhplog = FhpLogger(
-    config_file_path="~/zuliprc-old",
-    user_id="tomas.pereira@aicos.fraunhofer.pt",
-    to=["Logging"],
-    msg_type="stream",
-    topic="sc4c",
-)
-
-
-@fhplog.train_logger
-def train():
-    for i in range(20):
-        if i % 10 == 0:
-            fhplog.send_message("avg loss: %.5f, epoch: %d" % (0, i))
-
-
-def main():
-    """
-
-    :return:
-    """
-    pass
-
-
-if __name__ == "__main__":
-    main()
+    model = SymmFM(args, image_shape, channels)
+    model.train_model(dataloader)

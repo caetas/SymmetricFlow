@@ -91,6 +91,9 @@ target/
 *.db
 *.rdb
 
+# Wandb
+src/symmetricflow/wandb
+
 # JetBrains Pycharm
 .idea
 
