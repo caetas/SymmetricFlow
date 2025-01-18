@@ -4,7 +4,7 @@ from models.SymmFM import SymmFM
 
 if __name__ == '__main__':
     args = parse_args_SymmetricFlowMatching()
-    image_shape, channels, dataloader = celeb_hq_masked_dataloader(1, 0, 'train', args.size)
+    image_shape, channels, dataloader = celeb_hq_masked_dataloader(args.batch_size, 0, 'train', args.size)
     _, _, dataloader_val = celeb_hq_masked_dataloader(16, 0, 'validation', args.size)
 
     model = SymmFM(args, image_shape, channels)

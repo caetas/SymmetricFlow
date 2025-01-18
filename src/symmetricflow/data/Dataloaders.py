@@ -69,7 +69,7 @@ def celeb_hq_masked_dataloader(batch_size, num_workers, mode='train', input_shap
         return examples
 
     dataset = CelebHQMaskedDataset(transform_fn=transform_fn, mode=mode)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=True if mode != 'train' else False)
 
     return input_shape, 3, dataloader
 
