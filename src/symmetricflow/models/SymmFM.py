@@ -1055,7 +1055,7 @@ class SymmFM(nn.Module):
         
 
     
-    def train_model(self, train_loader, verbose=True):
+    def train_model(self, train_loader, val_loader, verbose=True):
         '''
         Train the model
         :param train_loader: training data loader
@@ -1099,9 +1099,9 @@ class SymmFM(nn.Module):
         scheduler = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr=self.lr, total_steps=self.n_epochs*len(train_loader), pct_start=self.warmup/self.n_epochs, anneal_strategy='cos', cycle_momentum=False, div_factor=self.lr/1e-6, final_div_factor=1)
 
         if  self.vae is None:
-            train_loader, self.model, optimizer, scheduler, self.ema = accelerate.prepare(train_loader, self.model, optimizer, scheduler, self.ema)
+            train_loader, self.model, optimizer, scheduler, self.ema, val_loader = accelerate.prepare(train_loader, self.model, optimizer, scheduler, self.ema, val_loader)
         else:
-            train_loader, self.model, optimizer, scheduler, self.ema, self.vae = accelerate.prepare(train_loader, self.model, optimizer, scheduler, self.ema, self.vae)
+            train_loader, self.model, optimizer, scheduler, self.ema, self.vae, val_loader = accelerate.prepare(train_loader, self.model, optimizer, scheduler, self.ema, self.vae, val_loader)
 
 
         update_ema(self.ema, self.model, 0)
@@ -1142,8 +1142,19 @@ class SymmFM(nn.Module):
 
             if (epoch+1) % self.sample_and_save_freq == 0 or epoch == 0:
                 self.model.eval()
-                self.sample(1, mask, accelerate=accelerate)
-                self.segment(1, x, accelerate=accelerate)
+                # one batch from the validation loader
+                x, mask = next(iter(val_loader))
+                x = x.to(self.device)
+                mask = mask.to(self.device)
+                if self.vae is not None:
+                    with torch.no_grad():
+                        if x.shape[1] == 1:
+                            x = torch.cat((x, x, x), dim=1)
+                            mask = torch.cat((mask, mask, mask), dim=1)
+                        x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
+                        mask = self.vae.encode(mask).latent_dist.sample().mul_(0.18215)
+                self.sample(x.shape[0], mask, accelerate=accelerate)
+                self.segment(x.shape[0], x, accelerate=accelerate)
             
             if train_loss < best_loss:
                 best_loss = train_loss

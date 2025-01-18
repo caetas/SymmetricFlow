@@ -17,8 +17,6 @@ class CelebHQMaskedDataset(Dataset):
         self.transform_fn = transform_fn
         self.dataset.set_transform(self.transform_fn)
         self.dataset = self.dataset[mode]
-        # just first element for testing
-        self.dataset = [self.dataset[0]]
 
     def __len__(self):
         '''
