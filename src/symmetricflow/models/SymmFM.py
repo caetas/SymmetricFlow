@@ -922,7 +922,7 @@ class SymmFM(nn.Module):
         '''
         x_0 = torch.randn(n_samples, self.channels, self.img_size, self.img_size, device=self.device)
         x_0 = torch.cat([x_0, mask], dim=1)
-
+        
         if train:
             def f(t: float, x):
                 return self.ema(x, torch.full(x.shape[:1], t, device=self.device))
@@ -985,6 +985,7 @@ class SymmFM(nn.Module):
 
         plt.close(fig)
 
+    @torch.no_grad()
     def segment(self, n_samples, x, train=True, accelerate=None):
         '''
         Segment images
@@ -1131,6 +1132,7 @@ class SymmFM(nn.Module):
                 scheduler.step()
                 train_loss += loss.item()*x.size(0)
                 update_ema(self.ema, self.model, self.ema_rate)
+                break
             
             accelerate.wait_for_everyone()
 
