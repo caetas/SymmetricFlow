@@ -23,6 +23,7 @@ from collections import OrderedDict
 import copy
 from abc import abstractmethod
 import cv2
+from utils.masks import mask_to_class
 
 # PyTorch 1.7 has SiLU, but we support PyTorch 1.5.
 class SiLU(nn.Module):
@@ -898,13 +899,18 @@ class SymmFM(nn.Module):
         '''
         sigma_min = 1e-4
         t = torch.rand(x.shape[0], device=x.device)
-        noise = torch.randn_like(x)
 
+        noise = torch.randn_like(x)
         x_t = (1 - (1 - sigma_min) * t[:, None, None, None]) * noise + t[:, None, None, None] * x
+
+        noise = torch.randn_like(x)
         mask_t = (1 - (1 - sigma_min) * t[:, None, None, None]) * mask + t[:, None, None, None] * noise
+
         optimal_flow_x = x - (1 - sigma_min) * noise
         optimal_flow_mask = noise - (1 - sigma_min) * mask
+        
         input = torch.cat([x_t, mask_t], dim=1)
+        
         optimal_flow = torch.cat([optimal_flow_x, optimal_flow_mask], dim=1)
         predicted_flow = self.forward(input, t)
 
@@ -1173,84 +1179,35 @@ class SymmFM(nn.Module):
         '''
         if checkpoint_path is not None:
             self.model.load_state_dict(torch.load(checkpoint_path, weights_only=False))
-    
-    @torch.no_grad()
-    def outlier_detection(self, in_loader, out_loader):
-        '''
-        Outlier detection
-        :param in_loader: in-distribution data loader
-        :param out_loader: out-of-distribution data loader
-        '''
-
-        in_scores = []
-        out_scores = []
-        self.model.eval()
-        for x, _ in tqdm(in_loader, desc='In-distribution', leave=False):
-            x = x.to(self.device)
-            #nll = self.get_nll(x)
-            nll = self.model(x, torch.full(x.shape[:1], 1, device=self.device)).cpu().abs().mean(dim=(1, 2, 3)).numpy()
-            # get maximum on dims 1,2,3
-            #nll = np.max(nll, axis=(1,2,3))
-            in_scores.append(nll)
-
-        for x, _ in tqdm(out_loader, desc='Out-of-distribution', leave=False):
-            x = x.to(self.device)
-            #nll = self.get_nll(x)
-            nll = self.model(x, torch.full(x.shape[:1], 1, device=self.device)).cpu().abs().mean(dim=(1, 2, 3)).numpy()
-            # get maximum on dims 1,2,3
-            #nll = np.max(nll, axis=(1,2,3))
-            out_scores.append(nll)
-
-        in_scores = np.concatenate(in_scores)
-        out_scores = np.concatenate(out_scores)
-
-        # plot histogram
-        plt.hist(in_scores, bins=100, alpha=0.5, label='In-distribution')
-        plt.hist(out_scores, bins=100, alpha=0.5, label='Out-of-distribution')
-        plt.legend()
-        plt.show()
 
     @torch.no_grad()
-    def interpolate(self, data_loader, n_steps=10):
+    def evaluate_segmentation(self, dataloader):
         '''
-        Interpolate between two images
-        :param data_loader: data loader
-        :param n_steps: number of steps
+        Evaluate the segmentation
+        :param dataloader: data loader
         '''
         self.model.eval()
-        # get two images from the data loader
-        x1, _ = next(iter(data_loader))
-        x1 = x1[0].to(self.device)
-        x2, _ = next(iter(data_loader))
-        x2 = x2[0].to(self.device)
+        gt = []
+        pred = []
+        for x, mask in dataloader:
+            x = x.to(self.device)
+            mask = mask.to(self.device)
+            gt.append(mask_to_class(mask, self.args.dataset))
 
-        x = torch.stack([x1, x2])
-        # reverse the flow
-        def f(t: float, x):
-            return self.forward(x, torch.full(x.shape[:1], t, device=self.device))
-        z = zuko.utils.odeint(f, x, 1, 0, phi=self.model.parameters(), atol=1e-5, rtol=1e-5).cpu()
-        z1 = z[0]
-        z2 = z[1]
+            if self.vae is not None:
+                with torch.no_grad():
+                    if x.shape[1] == 1:
+                        x = torch.cat((x, x, x), dim=1)
+                        mask = torch.cat((mask, mask, mask), dim=1)
+                    x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
+                    mask = self.vae.encode(mask).latent_dist.sample().mul_(0.18215)
 
-        distance = z2 - z1
-        interpolations = []
-        interpolations.append(z1)
-        for i in range(1,n_steps):
-            interpolation = z1 + distance * (i / (n_steps))
-            interpolations.append(interpolation)
-        interpolations.append(z2)
-        
-        interpolations = torch.stack(interpolations)
+            predicted_masks = self.segment(x.shape[0], x, train=False)
+            pred.append(mask_to_class(predicted_masks, self.args.dataset))
 
-        # sample from the interpolations
-        samples = odeint(f, interpolations.to(self.device), 0, 1, phi=self.model.parameters(), atol=1e-5, rtol=1e-5).cpu()
-        samples = samples*0.5 + 0.5
-        samples = samples.clamp(0, 1)
-        fig = plt.figure(figsize=(20, 5))
-        grid = make_grid(samples, nrow=n_steps+1)
-        plt.imshow(grid.permute(1, 2, 0).cpu().detach().numpy())
-        plt.axis('off')
-        plt.show()
+        gt = np.concatenate(gt)
+        pred = np.concatenate(pred)
+
 
     @torch.no_grad()
     def fid_sample(self, batch_size=16):

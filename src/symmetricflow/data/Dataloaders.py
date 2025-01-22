@@ -73,4 +73,77 @@ def celeb_hq_masked_dataloader(batch_size, num_workers, mode='train', input_shap
 
     return input_shape, 3, dataloader
 
+class CityscapesDataset(Dataset):
+    def __init__(self, transform_fn, mode='train'):
+        '''
+        Initializes the CityscapesDataset
+        Args:
+            transform_fn: function
+            mode: str
+        '''
+        self.dataset = load_dataset('huggan/cityscapes')
+        self.transform_fn = transform_fn
+        self.dataset.set_transform(self.transform_fn)
+        # 90% of the dataset is used for training, 10% for testing
+        self.dataset = self.dataset.train_test_split(test_size=0.2, shuffle=True, seed=42)
+        self.dataset = self.dataset['train' if mode == 'train' else 'test']
+        self.mode = mode
 
+    def __len__(self):
+        '''
+        Returns the length of the dataset
+        Returns:
+            int
+        '''
+        return len(self.dataset)
+    
+    def __getitem__(self, idx):
+        '''
+        Returns the image and mask at the given index
+        Args:
+            idx: int
+        Returns:
+            image: torch.Tensor
+            mask: torch.Tensor
+        '''
+        image = self.dataset[idx]['pixel_values']
+        mask = self.dataset[idx]['mask_values']
+        if self.mode == 'train':
+            # flip the image and mask horizontally with a 50% chance
+            if np.random.rand() > 0.5:
+                image = torch.flip(image, [-1])
+                mask = torch.flip(mask, [-1])
+        return image, mask
+    
+def cityscapes_dataloader(batch_size, num_workers, mode='train', input_shape=None):
+    '''
+    Returns a DataLoader for the CityscapesDataset
+    Args:
+        batch_size: int
+        num_workers: int
+        mode: str
+        input_shape: int
+    Returns:
+        DataLoader
+    '''
+    transform = transforms.Compose([
+        transforms.Resize((input_shape,input_shape)) if input_shape is not None else transforms.Resize((256,256)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5)),
+    ])
+
+    transform_mask = transforms.Compose([
+        transforms.Resize((input_shape,input_shape), interpolation=transforms.InterpolationMode.NEAREST) if input_shape is not None else transforms.Resize((256,256), interpolation=transforms.InterpolationMode.NEAREST),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5,0.5,0.5), (0.5,0.5,0.5)),
+    ])
+
+    def transform_fn(examples):
+        examples['pixel_values'] = [transform(image) for image in examples['image']]
+        examples['mask_values'] = [transform_mask(mask) for mask in examples['mask']]
+        return examples
+
+    dataset = CityscapesDataset(transform_fn=transform_fn, mode=mode)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=True if mode != 'train' else False)
+
+    return input_shape, 3, dataloader
