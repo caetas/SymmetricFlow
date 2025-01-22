@@ -18,7 +18,7 @@ class CelebHQMaskedDataset(Dataset):
         self.dataset.set_transform(self.transform_fn)
         self.dataset = self.dataset[mode]
         if mode == 'train':
-            self.dataset = self.dataset[:5000]
+            self.dataset = [self.dataset[i] for i in range(5000)]
 
     def __len__(self):
         '''
