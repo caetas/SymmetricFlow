@@ -14,9 +14,6 @@ class CelebHQMaskedDataset(Dataset):
         '''
 
         self.dataset = load_dataset('eurecom-ds/celeba_hq_mask', split=mode)
-        # get just the first 5000 images for training
-        if mode=='train':
-            self.dataset = self.dataset.select(list(range(5000)))
         self.transform_fn = transform_fn
         self.dataset.set_transform(self.transform_fn)
         #self.dataset = self.dataset[mode]
@@ -41,6 +38,9 @@ class CelebHQMaskedDataset(Dataset):
         # get self.patches random patches from the image
         image = self.dataset[idx]['pixel_values']
         mask = self.dataset[idx]['mask_values']
+        # dequantize by adding +- up to a range of 1/255
+        image = image + (torch.rand_like(image) - 0.5) / 127.5
+        mask = mask + (torch.rand_like(mask) - 0.5) / 127.5
         return image, mask
     
 def celeb_hq_masked_dataloader(batch_size, num_workers, mode='train', input_shape=None):
