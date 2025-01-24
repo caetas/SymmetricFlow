@@ -902,8 +902,6 @@ class SymmFM(nn.Module):
 
         noise = torch.randn_like(x)
         x_t = (1 - (1 - sigma_min) * t[:, None, None, None]) * noise + t[:, None, None, None] * x
-
-        noise = torch.randn_like(x)
         mask_t = (1 - (1 - sigma_min) * t[:, None, None, None]) * mask + t[:, None, None, None] * noise
 
         optimal_flow_x = x - (1 - sigma_min) * noise

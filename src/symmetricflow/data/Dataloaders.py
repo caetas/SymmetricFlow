@@ -15,6 +15,8 @@ class CelebHQMaskedDataset(Dataset):
 
         self.dataset = load_dataset('eurecom-ds/celeba_hq_mask', split=mode)
         # get just the first 5000 images for training
+        if mode=='train':
+            self.dataset = self.dataset.select(list(range(5000)))
         self.transform_fn = transform_fn
         self.dataset.set_transform(self.transform_fn)
         #self.dataset = self.dataset[mode]
