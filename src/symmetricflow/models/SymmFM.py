@@ -896,6 +896,9 @@ class SymmFM(nn.Module):
         '''
         Symmetrical flow matching loss
         :param x: input image
+        :param mask: mask
+        Returns:
+        - Image Generation Loss, Mask Generation Loss
         '''
         sigma_min = 1e-4
         t = torch.rand(x.shape[0], device=x.device)
@@ -912,7 +915,7 @@ class SymmFM(nn.Module):
         optimal_flow = torch.cat([optimal_flow_x, optimal_flow_mask], dim=1)
         predicted_flow = self.forward(input, t)
 
-        return (predicted_flow - optimal_flow).square().mean()
+        return (predicted_flow[:, :self.channels] - optimal_flow[:, :self.channels]).square().mean(), (predicted_flow[:, self.channels:] - optimal_flow[:, self.channels:]).square().mean()
     
     @torch.no_grad()
     def sample(self, n_samples, mask, train=True, accelerate=None, fid=False):
@@ -1056,7 +1059,7 @@ class SymmFM(nn.Module):
             if not self.no_wandb:
                 accelerate.log({"segmentations": fig})
         else:
-            return samples
+            plt.show()
         
 
     
@@ -1113,7 +1116,8 @@ class SymmFM(nn.Module):
 
         for epoch in epoch_bar:
             self.model.train()
-            train_loss = 0.0
+            train_loss_image = 0.0
+            train_loss_mask = 0.0
             for x, mask in tqdm(train_loader, desc='Batches', leave=False, disable=not verbose):
                 x = x.to(self.device)
                 mask = mask.to(self.device)
@@ -1130,20 +1134,23 @@ class SymmFM(nn.Module):
                             mask = self.vae.encode(mask).latent_dist.sample().mul_(0.18215)
 
                     optimizer.zero_grad()
-                    loss = self.symmetrical_flow_matching_loss(x, mask)
+                    loss_image, loss_mask = self.symmetrical_flow_matching_loss(x, mask)
+                    loss = 0.8*loss_image + 0.2*loss_mask
                     accelerate.backward(loss)
                 optimizer.step()
                 scheduler.step()
-                train_loss += loss.item()*x.size(0)
+                train_loss_image += loss_image.item()*x.size(0)
+                train_loss_mask += loss_mask.item()*x.size(0)
                 update_ema(self.ema, self.model, self.ema_rate)
             
             accelerate.wait_for_everyone()
 
             if not self.no_wandb:
-                accelerate.log({"Train Loss": train_loss / len(train_loader.dataset)})
+                accelerate.log({"Train Loss Image": train_loss_image / len(train_loader.dataset)})
+                accelerate.log({"Train Loss Mask": train_loss_mask / len(train_loader.dataset)})
                 accelerate.log({"Learning Rate": scheduler.get_last_lr()[0]})
 
-            epoch_bar.set_postfix({'Loss': train_loss / len(train_loader.dataset)})
+            epoch_bar.set_postfix({'Loss': (train_loss_image+train_loss_mask)*0.5 / len(train_loader.dataset)})
 
             if (epoch+1) % self.sample_and_save_freq == 0 or epoch == 0:
                 self.model.eval()
@@ -1160,9 +1167,6 @@ class SymmFM(nn.Module):
                         mask = self.vae.encode(mask).latent_dist.sample().mul_(0.18215)
                 self.sample(x.shape[0], mask, accelerate=accelerate)
                 self.segment(x.shape[0], x, accelerate=accelerate)
-            
-            if train_loss < best_loss:
-                best_loss = train_loss
             
             if (epoch+1) % self.snapshot == 0:
                 ema_to_save = accelerate.unwrap_model(self.ema)
