@@ -9,7 +9,7 @@ if __name__ == '__main__':
         image_shape, channels, dataloader = celeb_hq_masked_dataloader(args.batch_size, args.num_workers, 'train', args.size)
         _, _, dataloader_val = celeb_hq_masked_dataloader(16, args.num_workers, 'validation', args.size)
     else:
-        image_shape, channels, dataloader = cityscapes_dataloader(args.batch_size, args.num_workers, 'train'. args.size)
+        image_shape, channels, dataloader = cityscapes_dataloader(args.batch_size, args.num_workers, 'train', args.size)
         _, _, dataloader_val = cityscapes_dataloader(16, args.num_workers, 'validation', args.size)
 
     model = SymmFM(args, image_shape, channels)
