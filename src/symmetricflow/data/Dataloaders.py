@@ -144,6 +144,7 @@ def cityscapes_dataloader(batch_size, num_workers, mode='train', input_shape=Non
     transform_mask = transforms.Compose([
         transforms.Resize((input_shape, input_shape), interpolation=transforms.InterpolationMode.NEAREST) if input_shape is not None else transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
         transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
     ])
 
 
