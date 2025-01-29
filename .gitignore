@@ -108,6 +108,9 @@ src/symmetricflow/wandb
 # Local History for Visual Studio Code
 .history/
 
+data/raw/
+*.ipynb
+
 # Spyder
 .spyderproject
 .spyproject/

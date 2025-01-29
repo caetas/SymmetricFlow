@@ -78,6 +78,55 @@ def celeb_hq_masked_dataloader(batch_size, num_workers, mode='train', input_shap
 
     return input_shape, 3, dataloader
 
+
+def cityscapes_to_color_mask(mask):
+    id_to_color = {
+    0: (0, 0, 0),
+    1: (0, 0, 0),
+    2: (0, 0, 0),
+    3: (0, 0, 0),
+    4: (0, 0, 0),
+    5: (111, 74, 0),
+    6: (81, 0, 81),
+    7: (128, 64, 128),
+    8: (244, 35, 232),
+    9: (250, 170, 160),
+    10: (230, 150, 140),
+    11: (70, 70, 70),
+    12: (102, 102, 156),
+    13: (190, 153, 153),
+    14: (180, 165, 180),
+    15: (150, 100, 100),
+    16: (150, 120, 90),
+    17: (153, 153, 153),
+    18: (153, 153, 153),
+    19: (250, 170, 30),
+    20: (220, 220, 0),
+    21: (107, 142, 35),
+    22: (152, 251, 152),
+    23: (70, 130, 180),
+    24: (220, 20, 60),
+    25: (255, 0, 0),
+    26: (0, 0, 142),
+    27: (0, 0, 70),
+    28: (0, 60, 100),
+    29: (0, 0, 90),
+    30: (0, 0, 110),
+    31: (0, 80, 100),
+    32: (0, 0, 230),
+    33: (119, 11, 32),
+    -1: (0, 0, 142),
+}
+
+    mask = np.array(mask)
+    mask = mask.squeeze()
+
+    colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+    for id, color in id_to_color.items():
+        colored_mask[np.all(mask == id, axis=-1)] = color
+
+    return Image.fromarray(colored_mask)
+
 class CityscapesDataset(Dataset):
     def __init__(self, transform, transform_mask, mode='train'):
         '''
@@ -86,7 +135,7 @@ class CityscapesDataset(Dataset):
             transform_fn: function
             mode: str
         '''
-        self.dataset = load_dataset('huggan/cityscapes', split='train')
+        self.dataset = load_dataset('Chris1/cityscapes', split=mode)
         self.transform = transform
         self.transform_mask = transform_mask
         #self.dataset = self.transform_fn(self.dataset)  # Apply transformation to the entire dataset
@@ -110,10 +159,12 @@ class CityscapesDataset(Dataset):
             mask: torch.Tensor
         '''
         example = self.dataset[idx]
-        image = example['imageA']['bytes']
-        mask = example['imageB']['bytes']
-        image = Image.open(BytesIO(image))
-        mask = Image.open(BytesIO(mask))
+        image = example['image']
+        mask = example['semantic_segmentation']
+        # crop the central 1024x1024 region, remember its a PIL image of shape 2048x1024
+        image = image.crop((512, 0, 1536, 1024))
+        mask = mask.crop((512, 0, 1536, 1024))
+        mask = cityscapes_to_color_mask(mask)
         image = self.transform(image)
         mask = self.transform_mask(mask)
         if self.mode == 'train':
