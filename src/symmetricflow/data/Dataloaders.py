@@ -42,7 +42,7 @@ class CelebHQMaskedDataset(Dataset):
         mask = self.dataset[idx]['mask_values']
         # dequantize by adding +- up to a range of 1/255
         image = image + (torch.rand_like(image) - 0.5) / 127.5
-        mask = mask + (torch.rand_like(mask) - 0.5) / 127.5
+        mask = mask
         return image, mask
     
 def celeb_hq_masked_dataloader(batch_size, num_workers, mode='train', input_shape=None):

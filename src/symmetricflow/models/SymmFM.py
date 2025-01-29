@@ -878,6 +878,7 @@ class SymmFM(nn.Module):
         self.warmup = args.warmup
         self.decay = args.decay
         self.snapshot = args.n_epochs//args.snapshots
+        self.beta = args.beta
         if args.train:
             self.ema = copy.deepcopy(self.model)
             self.ema_rate = args.ema_rate
@@ -1060,7 +1061,16 @@ class SymmFM(nn.Module):
                 accelerate.log({"segmentations": fig})
         else:
             plt.show()
-        
+
+    def dequantize_mask(self, mask):
+        '''
+        Dequantize the mask
+        :param mask: mask
+        :param beta: beta value
+        '''
+        mask = mask + (self.beta*(torch.rand_like(mask) - 0.5) / 127.5)
+
+        return mask    
 
     
     def train_model(self, train_loader, val_loader, verbose=True):
@@ -1120,6 +1130,7 @@ class SymmFM(nn.Module):
             train_loss_mask = 0.0
             for x, mask in tqdm(train_loader, desc='Batches', leave=False, disable=not verbose):
                 x = x.to(self.device)
+                mask = self.dequantize_mask(mask)
                 mask = mask.to(self.device)
 
                 with accelerate.autocast():
@@ -1157,6 +1168,7 @@ class SymmFM(nn.Module):
                 # one batch from the validation loader
                 x, mask = next(iter(val_loader))
                 x = x.to(self.device)
+                mask = self.dequantize_mask(mask)
                 mask = mask.to(self.device)
                 if self.vae is not None:
                     with torch.no_grad():
