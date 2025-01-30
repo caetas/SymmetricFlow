@@ -5,6 +5,7 @@ import torch
 import numpy as np
 from PIL import Image
 from io import BytesIO
+from tqdm import tqdm
 
 class CelebHQMaskedDataset(Dataset):
     def __init__(self, transform_fn, mode='train'):
@@ -140,6 +141,8 @@ class CityscapesDataset(Dataset):
         self.transform_mask = transform_mask
         #self.dataset = self.transform_fn(self.dataset)  # Apply transformation to the entire dataset
         self.mode = mode
+        self.images = [data['image'].crop((512, 0, 1536, 1024)) for data in tqdm(self.dataset, desc='Loading Cityscapes Dataset Images', leave=False)]
+        self.masks = [cityscapes_to_color_mask(data['semantic_segmentation'].crop((512, 0, 1536, 1024))) for data in tqdm(self.dataset, desc='Loading Cityscapes Dataset Masks', leave=False)]
 
     def __len__(self):
         '''
@@ -158,13 +161,8 @@ class CityscapesDataset(Dataset):
             image: torch.Tensor
             mask: torch.Tensor
         '''
-        example = self.dataset[idx]
-        image = example['image']
-        mask = example['semantic_segmentation']
-        # crop the central 1024x1024 region, remember its a PIL image of shape 2048x1024
-        image = image.crop((512, 0, 1536, 1024))
-        mask = mask.crop((512, 0, 1536, 1024))
-        mask = cityscapes_to_color_mask(mask)
+        image = self.images[idx]
+        mask = self.masks[idx]
         image = self.transform(image)
         mask = self.transform_mask(mask)
         if self.mode == 'train':
