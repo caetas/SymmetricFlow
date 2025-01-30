@@ -91,6 +91,9 @@ target/
 *.db
 *.rdb
 
+# Wandb
+src/symmetricflow/wandb
+
 # JetBrains Pycharm
 .idea
 
@@ -104,6 +107,9 @@ target/
 **/.vscode
 # Local History for Visual Studio Code
 .history/
+
+data/raw/
+*.ipynb
 
 # Spyder
 .spyderproject
