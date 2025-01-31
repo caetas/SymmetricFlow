@@ -1142,7 +1142,7 @@ class SymmFM(nn.Module):
                                 x = torch.cat((x, x, x), dim=1)
                                 mask = torch.cat((mask, mask, mask), dim=1)
                             x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                            mask = self.vae.encode(mask).latent_dist.sample().mul_(0.18215)
+                            mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
 
                     optimizer.zero_grad()
                     loss_image, loss_mask = self.symmetrical_flow_matching_loss(x, mask)
@@ -1176,7 +1176,7 @@ class SymmFM(nn.Module):
                             x = torch.cat((x, x, x), dim=1)
                             mask = torch.cat((mask, mask, mask), dim=1)
                         x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                        mask = self.vae.encode(mask).latent_dist.sample().mul_(0.18215)
+                        mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
                 self.sample(x.shape[0], mask, accelerate=accelerate)
                 self.segment(x.shape[0], x, accelerate=accelerate)
             
@@ -1214,7 +1214,7 @@ class SymmFM(nn.Module):
                         x = torch.cat((x, x, x), dim=1)
                         mask = torch.cat((mask, mask, mask), dim=1)
                     x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                    mask = self.vae.encode(mask).latent_dist.sample().mul_(0.18215)
+                    mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
 
             predicted_masks = self.segment(x.shape[0], x, train=False)
             pred.append(mask_to_class(predicted_masks, self.args.dataset))
