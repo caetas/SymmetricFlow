@@ -129,7 +129,7 @@ def cityscapes_to_color_mask(mask):
     return Image.fromarray(colored_mask)
 
 class CityscapesDataset(Dataset):
-    def __init__(self, transform, transform_mask, mode='train'):
+    def __init__(self, transform, transform_mask, mode='train', input_shape=256):
         '''
         Initializes the CityscapesDataset
         Args:
@@ -139,10 +139,17 @@ class CityscapesDataset(Dataset):
         self.dataset = load_dataset('Chris1/cityscapes', split=mode)
         self.transform = transform
         self.transform_mask = transform_mask
-        #self.dataset = self.transform_fn(self.dataset)  # Apply transformation to the entire dataset
+        self.input_shape = input_shape
         self.mode = mode
-        self.images = [data['image'].crop((512, 0, 1536, 1024)) for data in tqdm(self.dataset, desc='Loading Cityscapes Dataset Images', leave=False)]
-        self.masks = [cityscapes_to_color_mask(data['semantic_segmentation'].crop((512, 0, 1536, 1024))) for data in tqdm(self.dataset, desc='Loading Cityscapes Dataset Masks', leave=False)]
+        if self.mode == 'train':
+            # resize the images to the input_shape with bilinear interpolation
+            self.images = [data['image'].resize((self.input_shape*2, self.input_shape)) for data in tqdm(self.dataset, desc='Loading Cityscapes Dataset Images', leave=False)]
+            # resize the masks to the input shape with nearest neighbor interpolation
+            self.masks = [cityscapes_to_color_mask(data['semantic_segmentation'].resize((self.input_shape*2, self.input_shape), resample=Image.NEAREST)) for data in tqdm(self.dataset, desc='Loading Cityscapes Dataset Masks', leave=False)]
+        else:
+            # resize the images to the input_shape with bilinear interpolation and center crop
+            self.images = [data['image'].resize((self.input_shape*2, self.input_shape)).crop((self.input_shape//2, 0, self.input_shape + self.input_shape//2, self.input_shape)) for data in tqdm(self.dataset, desc='Loading Cityscapes Dataset Images', leave=False)]
+            self.masks = [cityscapes_to_color_mask(data['semantic_segmentation'].resize((self.input_shape*2, self.input_shape), resample=Image.NEAREST).crop((self.input_shape//2, 0, self.input_shape + self.input_shape//2, self.input_shape))) for data in tqdm(self.dataset, desc='Loading Cityscapes Dataset Masks', leave=False)]
 
     def __len__(self):
         '''
@@ -163,6 +170,11 @@ class CityscapesDataset(Dataset):
         '''
         image = self.images[idx]
         mask = self.masks[idx]
+        if self.mode == 'train':
+            # random horizontal crop of the image and mask
+            w_init = np.random.randint(0, self.input_shape)
+            image = image.crop((w_init, 0, w_init+self.input_shape, self.input_shape))
+            mask = mask.crop((w_init, 0, w_init+self.input_shape, self.input_shape))
         image = self.transform(image)
         mask = self.transform_mask(mask)
         if self.mode == 'train':
@@ -198,7 +210,7 @@ def cityscapes_dataloader(batch_size, num_workers, mode='train', input_shape=Non
 
 
 
-    dataset = CityscapesDataset(transform=transform, transform_mask=transform_mask, mode=mode)
+    dataset = CityscapesDataset(transform=transform, transform_mask=transform_mask, mode=mode, input_shape=input_shape if input_shape is not None else 256)
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=(mode != 'train'))
 
     return input_shape, 3, dataloader

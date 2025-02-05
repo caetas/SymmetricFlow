@@ -879,6 +879,7 @@ class SymmFM(nn.Module):
         self.decay = args.decay
         self.snapshot = args.n_epochs//args.snapshots
         self.beta = args.beta
+        self.image_weight = args.image_weight
         if args.train:
             self.ema = copy.deepcopy(self.model)
             self.ema_rate = args.ema_rate
@@ -1059,6 +1060,7 @@ class SymmFM(nn.Module):
         if train:
             if not self.no_wandb:
                 accelerate.log({"segmentations": fig})
+                plt.close(fig)
         else:
             plt.show()
 
@@ -1146,7 +1148,7 @@ class SymmFM(nn.Module):
 
                     optimizer.zero_grad()
                     loss_image, loss_mask = self.symmetrical_flow_matching_loss(x, mask)
-                    loss = 0.8*loss_image + 0.2*loss_mask
+                    loss = self.image_weight*loss_image + (1.-self.image_weight)*loss_mask
                     accelerate.backward(loss)
                 optimizer.step()
                 scheduler.step()
