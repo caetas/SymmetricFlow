@@ -6,6 +6,8 @@ import numpy as np
 from PIL import Image
 from io import BytesIO
 from tqdm import tqdm
+from torchvision import datasets
+from config import data_raw_dir
 
 class CelebHQMaskedDataset(Dataset):
     def __init__(self, transform_fn, mode='train'):
@@ -214,3 +216,55 @@ def cityscapes_dataloader(batch_size, num_workers, mode='train', input_shape=Non
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=(mode != 'train'))
 
     return input_shape, 3, dataloader
+
+def mnist_train_loader(batch_size, normalize = False, input_shape = None, num_workers = 0):
+
+    if normalize:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+        ])
+
+    training_data = datasets.MNIST(root=data_raw_dir, train=True, download=True, transform=transform)
+
+    training_loader = DataLoader(training_data, 
+                                 batch_size=batch_size, 
+                                 shuffle=True,
+                                 pin_memory=True,
+                                 num_workers = num_workers)
+    if input_shape is not None:
+        return input_shape, 1, training_loader
+    else:
+        return 32, 1, training_loader
+
+def mnist_val_loader(batch_size, normalize = False, input_shape = None):
+
+    if normalize:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,)),
+            #transforms.Lambda(lambda x: x.repeat(3, 1, 1) )
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+        ])
+
+    validation_data = datasets.MNIST(root=data_raw_dir, train=False, download=True, transform=transform)
+
+    validation_loader = DataLoader(validation_data,
+                                   batch_size=batch_size,
+                                   shuffle=True,
+                                   pin_memory=True)
+    if input_shape is not None:
+        return input_shape, 1, validation_loader
+    else:
+        return 32, 1, validation_loader
