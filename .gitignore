@@ -109,7 +109,6 @@ src/symmetricflow/wandb
 .history/
 
 data/raw/
-*.ipynb
 
 # Spyder
 .spyderproject
