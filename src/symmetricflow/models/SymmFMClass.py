@@ -23,7 +23,7 @@ from collections import OrderedDict
 import copy
 from abc import abstractmethod
 import cv2
-from utils.masks import mask_to_class
+from sklearn.metrics import accuracy_score
 
 # PyTorch 1.7 has SiLU, but we support PyTorch 1.5.
 class SiLU(nn.Module):
@@ -822,19 +822,19 @@ def create_checkpoint_dir():
     '''
     if not os.path.exists(models_dir):
         os.makedirs(models_dir)
-    if not os.path.exists(os.path.join(models_dir, 'SymmetricalFlowMatching')):
-        os.makedirs(os.path.join(models_dir, 'SymmetricalFlowMatching'))
+    if not os.path.exists(os.path.join(models_dir, 'SymmetricalFlowMatchingClass')):
+        os.makedirs(os.path.join(models_dir, 'SymmetricalFlowMatchingClass'))
 
-class SymmFM(nn.Module):
+class SymmFMClass(nn.Module):
 
     def __init__(self, args, img_size=32, in_channels=3):
         '''
-        SymmetricalFlowMatching module
+        SymmetricalFlowMatchingClass module
         :param args: arguments
         :param img_size: size of the image
         :param in_channels: number of input channels
         '''
-        super(SymmFM, self).__init__()
+        super(SymmFMClass, self).__init__()
         self.args = args
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.vae =  AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-mse").to(self.device) if args.latent else None
@@ -848,9 +848,9 @@ class SymmFM(nn.Module):
 
         self.model = UNetModel(
             image_size=self.img_size,
-            in_channels=self.channels*2,
+            in_channels=self.channels+1,
             model_channels=args.model_channels,
-            out_channels=self.channels*2,
+            out_channels=self.channels+1,
             num_res_blocks=args.num_res_blocks,
             attention_resolutions=args.attention_resolutions,
             dropout=args.dropout,
@@ -880,6 +880,7 @@ class SymmFM(nn.Module):
         self.snapshot = args.n_epochs//args.snapshots
         self.beta = args.beta
         self.image_weight = args.image_weight
+        self.n_classes = args.n_classes
         if args.train:
             self.ema = copy.deepcopy(self.model)
             self.ema_rate = args.ema_rate
@@ -888,7 +889,7 @@ class SymmFM(nn.Module):
 
     def forward(self, x, t):
         '''
-        Forward pass of the SymmetricalFlowMatching module
+        Forward pass of the SymmetricalFlowMatchingClass module
         :param x: input image
         :param t: time
         '''
@@ -1018,7 +1019,7 @@ class SymmFM(nn.Module):
         plt.close(fig)
 
     @torch.no_grad()
-    def segment(self, n_samples, x, train=True, accelerate=None):
+    def segment(self, n_samples, x, train=True, accelerate=None, eval=False):
         '''
         Segment images
         :param n_samples: number of samples
@@ -1026,7 +1027,7 @@ class SymmFM(nn.Module):
         :param train: if True, sample during training
         :param accelerate: Accelerator object
         '''
-        x_0 = torch.randn(n_samples, self.channels, self.img_size, self.img_size, device=self.device)
+        x_0 = torch.randn(n_samples, 1, self.img_size, self.img_size, device=self.device)
         x_0 = torch.cat([x, x_0], dim=1)
 
         if train:
@@ -1065,6 +1066,9 @@ class SymmFM(nn.Module):
                 samples = self.vae.decode(samples / 0.18215).sample
                 x = self.vae.decode(x / 0.18215).sample
 
+        if eval:
+            return samples
+
         samples = samples*0.5 + 0.5
         samples = samples.clamp(0, 1)
         x = x*0.5 + 0.5
@@ -1087,15 +1091,31 @@ class SymmFM(nn.Module):
         else:
             plt.show()
 
-    def dequantize_mask(self, mask):
+    def dequantize_class(self, label):
         '''
         Dequantize the mask
         :param mask: mask
         :param beta: beta value
         '''
-        mask = mask + (self.beta*(torch.rand_like(mask) - 0.5) / 127.5)
+        interval = 1.5/(self.n_classes-1)
+        label = (label/(self.n_classes-1))*2.0 - 1.0
+        mask = torch.ones(label.shape[0], 1, self.img_size, self.img_size, device=self.device)*label[:, None, None, None]
+        mask = mask + interval*(torch.rand_like(mask) - 0.5)
 
-        return mask    
+        return mask
+
+    def quantize_class(self, mask):
+        '''
+        Quantize the mask
+        :param mask: mask
+        :param beta: beta value
+        '''
+        mask = mask*0.5 + 0.5
+        mask = mask.mean(dim=(1, 2, 3)) 
+        mask *= (self.n_classes-1)
+        label = mask.round()
+
+        return label
 
     
     def train_model(self, train_loader, val_loader, verbose=True):
@@ -1105,7 +1125,7 @@ class SymmFM(nn.Module):
         '''
         accelerate = Accelerator(log_with="wandb")
         if not self.no_wandb:
-            accelerate.init_trackers(project_name='SymmetricalFlowMatching',
+            accelerate.init_trackers(project_name='SymmetricalFlowMatchingClass',
             config = {
                         "dataset": self.args.dataset,
                         "batch_size": self.args.batch_size,
@@ -1129,9 +1149,10 @@ class SymmFM(nn.Module):
                         "warmup": self.args.warmup,
                         "latent": self.args.latent,
                         "decay": self.args.decay,
-                        "size": self.args.size,   
+                        "size": self.args.size, 
+                        "n_classes": self.args.n_classes, 
                 },
-                init_kwargs={"wandb":{"name": f"SymmetricalFlowMatching_{self.args.dataset}"}})
+                init_kwargs={"wandb":{"name": f"SymmetricalFlowMatchingClass_{self.args.dataset}"}})
 
         epoch_bar = tqdm(range(self.n_epochs), desc='Epochs', leave=True)
         create_checkpoint_dir()
@@ -1153,9 +1174,9 @@ class SymmFM(nn.Module):
             self.model.train()
             train_loss_image = 0.0
             train_loss_mask = 0.0
-            for x, mask in tqdm(train_loader, desc='Batches', leave=False, disable=not verbose):
+            for x, label in tqdm(train_loader, desc='Batches', leave=False, disable=not verbose):
                 x = x.to(self.device)
-                mask = self.dequantize_mask(mask)
+                mask = self.dequantize_class(label)
                 mask = mask.to(self.device)
 
                 with accelerate.autocast():
@@ -1191,9 +1212,9 @@ class SymmFM(nn.Module):
             if (epoch+1) % self.sample_and_save_freq == 0 or epoch == 0:
                 self.model.eval()
                 # one batch from the validation loader
-                x, mask = next(iter(val_loader))
+                x, label = next(iter(val_loader))
                 x = x.to(self.device)
-                mask = self.dequantize_mask(mask)
+                mask = self.dequantize_class(label)
                 mask = mask.to(self.device)
                 if self.vae is not None:
                     with torch.no_grad():
@@ -1203,11 +1224,11 @@ class SymmFM(nn.Module):
                         x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
                         mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
                 self.sample(x.shape[0], mask, accelerate=accelerate)
-                self.segment(x.shape[0], x, accelerate=accelerate)
+                #self.segment(x.shape[0], x, accelerate=accelerate)
             
             if (epoch+1) % self.snapshot == 0:
                 ema_to_save = accelerate.unwrap_model(self.ema)
-                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatching', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_epoch{epoch+1}.pt"))
+                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatchingClass', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_epoch{epoch+1}.pt"))
 
         accelerate.end_training()
 
@@ -1228,24 +1249,26 @@ class SymmFM(nn.Module):
         self.model.eval()
         gt = []
         pred = []
-        for x, mask in dataloader:
+        for x, label in tqdm(dataloader, desc='Evaluating', leave=True):
             x = x.to(self.device)
-            mask = mask.to(self.device)
-            gt.append(mask_to_class(mask, self.args.dataset))
+            gt.append(label.numpy())
 
             if self.vae is not None:
                 with torch.no_grad():
                     if x.shape[1] == 1:
                         x = torch.cat((x, x, x), dim=1)
-                        mask = torch.cat((mask, mask, mask), dim=1)
                     x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                    mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
 
-            predicted_masks = self.segment(x.shape[0], x, train=False)
-            pred.append(mask_to_class(predicted_masks, self.args.dataset))
+            predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
+            pred.append(self.quantize_class(predicted_masks).cpu().long().numpy())
 
         gt = np.concatenate(gt)
         pred = np.concatenate(pred)
+
+
+        acc = accuracy_score(gt, pred)
+
+        print(f"Accuracy: {100*acc:.2f}%")
 
 
     @torch.no_grad()
