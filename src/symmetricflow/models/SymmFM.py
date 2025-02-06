@@ -905,12 +905,13 @@ class SymmFM(nn.Module):
         sigma_min = 1e-4
         t = torch.rand(x.shape[0], device=x.device)
 
-        noise = torch.randn_like(x)
-        x_t = (1 - (1 - sigma_min) * t[:, None, None, None]) * noise + t[:, None, None, None] * x
-        mask_t = (1 - (1 - sigma_min) * t[:, None, None, None]) * mask + t[:, None, None, None] * noise
+        noise_x = torch.randn_like(x)
+        noise_mask = torch.randn_like(mask)
+        x_t = (1 - (1 - sigma_min) * t[:, None, None, None]) * noise_x + t[:, None, None, None] * x
+        mask_t = (1 - (1 - sigma_min) * t[:, None, None, None]) * mask + t[:, None, None, None] * noise_mask
 
-        optimal_flow_x = x - (1 - sigma_min) * noise
-        optimal_flow_mask = noise - (1 - sigma_min) * mask
+        optimal_flow_x = x - (1 - sigma_min) * noise_x
+        optimal_flow_mask = noise_mask - (1 - sigma_min) * mask
         
         input = torch.cat([x_t, mask_t], dim=1)
         
@@ -918,6 +919,28 @@ class SymmFM(nn.Module):
         predicted_flow = self.forward(input, t)
 
         return (predicted_flow[:, :self.channels] - optimal_flow[:, :self.channels]).square().mean(), (predicted_flow[:, self.channels:] - optimal_flow[:, self.channels:]).square().mean()
+    
+    def encode(self, x):
+        '''
+        Encode the input image
+        :param x: input image
+        '''
+        # check if it is a distributted model or not
+        if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
+            return self.model.module.encode(x)
+        else:
+            return self.model.encode(x)
+        
+    def decode(self, z):
+        '''
+        Decode the input image
+        :param z: input image
+        '''
+        # check if it is a distributted model or not
+        if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
+            return self.model.module.decode(z)
+        else:
+            return self.model.decode(z)
     
     @torch.no_grad()
     def sample(self, n_samples, mask, train=True, accelerate=None, fid=False):
