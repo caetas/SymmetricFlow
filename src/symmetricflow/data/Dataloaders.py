@@ -244,13 +244,19 @@ class CocoStuffDataset(Dataset):
             transform_fn: function
             mode: str
         '''
-        self.zip_file_path = os.path.join(data_raw_dir, 'cocostuff', f'{mode}2017.zip')
-        self.masks_zip_file_path = os.path.join(data_raw_dir, 'cocostuff', 'stuffthingmaps_trainval2017.zip')
+        self.file_path = os.path.join(data_raw_dir, 'cocostuff', f'{mode}2017')
+        self.masks_file_path = os.path.join(data_raw_dir, 'cocostuff', 'stuffthingmaps_trainval2017', f'{mode}2017')
         self.transform_fn = transform_fn
         self.mode = mode
         self.image_ids = []
         self.mask_transform_fn = mask_transform_fn
         self.masks_ids = []
+        self.image_list = os.listdir(self.file_path)
+        self.masks = os.listdir(self.masks_file_path)
+        self.images = [os.path.join(self.file_path, image) for image in self.image_list]
+        #masks have the same name as the images but with a different extension (.png)
+        self.masks = [os.path.join(self.masks_file_path, image.replace('.jpg', '.png')) for image in self.image_list]
+        '''
         with zipfile.ZipFile(self.zip_file_path, 'r') as f:
             for file in f.namelist():
                 if file.endswith('.jpg'):
@@ -261,10 +267,11 @@ class CocoStuffDataset(Dataset):
                     self.masks_ids.append(file)
         self.image_ids = sorted(self.image_ids)
         self.masks_ids = sorted(self.masks_ids)
+        '''
         self.palette = build_palette(6, 50)
         self.size = size
 
-        print(f'Found {len(self.image_ids)} images and {len(self.masks_ids)} masks in the {mode} dataset')
+        print(f'Found {len(self.images)} images and {len(self.masks)} masks in the {mode} dataset')
 
     def __len__(self):
         '''
@@ -272,7 +279,7 @@ class CocoStuffDataset(Dataset):
         Returns:
             int
         '''
-        return len(self.image_ids)
+        return len(self.images)
     
     def __getitem__(self, idx):
         '''
@@ -283,12 +290,16 @@ class CocoStuffDataset(Dataset):
             image: torch.Tensor
             mask: torch.Tensor
         '''
+        '''
         with zipfile.ZipFile(self.zip_file_path, 'r') as zip_file:
             with zip_file.open(self.image_ids[idx]) as image_file:
                 image = Image.open(BytesIO(image_file.read()))
         with zipfile.ZipFile(self.masks_zip_file_path, 'r') as masks_zip_file:
             with masks_zip_file.open(self.masks_ids[idx]) as mask_file:
                 mask = Image.open(BytesIO(mask_file.read()))
+        '''
+        image = Image.open(self.images[idx]).convert('RGB')
+        mask = Image.open(self.masks[idx])
         # crop both to the smallest dimension, check if it is height or width, should be a center crop
         if image.size[0] < image.size[1]:
             start = np.random.randint(0, image.size[1] - image.size[0])
