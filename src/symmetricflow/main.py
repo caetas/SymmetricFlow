@@ -15,7 +15,7 @@ if __name__ == '__main__':
             _, _, dataloader_val = cityscapes_dataloader(16, args.num_workers, 'validation', args.size)
         else:
             image_shape, channels, dataloader = cocostuff_dataloader(args.batch_size, args.num_workers, 'train', args.size)
-            _, _, dataloader_val = cocostuff_dataloader(1, args.num_workers, 'val', args.size)
+            _, _, dataloader_val = cocostuff_dataloader(16, args.num_workers, 'val', args.size)
 
         model = SymmFM(args, image_shape, channels)
         #model.sample(16, mask=mask, train=False)
