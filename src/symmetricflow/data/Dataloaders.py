@@ -3,7 +3,8 @@ from torchvision import transforms
 from datasets import load_dataset
 import torch
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageFile
+ImageFile.LOAD_TRUNCATED_IMAGES = True
 from io import BytesIO
 from tqdm import tqdm
 from torchvision import datasets
