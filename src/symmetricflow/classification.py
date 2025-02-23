@@ -20,6 +20,17 @@ if __name__ == '__main__':
         #model.segment(16, x, train=False)
         model.train_model(dataloader, dataloader_val)
 
+    elif args.sample:
+        
+        if args.dataset == 'mnist':
+            image_shape, channels, dataloader = mnist_val_loader(16, normalize=True)
+        else:
+            image_shape, channels, dataloader = cifar10_val_loader(16, normalize=True)
+
+        model = SymmFMClass(args, image_shape, channels)
+        model.load_checkpoint(args.checkpoint)
+        model.sample(16, mask=None, train=False)
+
     else:
         
         if args.dataset == 'mnist':

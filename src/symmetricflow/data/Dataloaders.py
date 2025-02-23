@@ -13,6 +13,90 @@ import zipfile
 import os
 
 
+class ADE20KDataset(Dataset):
+    def __init__(self, transform_fn, mask_transform_fn, mode='train', size=256):
+        '''
+        Initializes the ADE20KDataset
+        Args:
+            transform_fn: function
+            mode: str
+        '''
+        self.images = load_dataset('1aurent/ADE20K', split=mode)
+        self.transform_fn = transform_fn
+        self.mask_transform_fn = mask_transform_fn
+        self.size = size
+
+
+    def __len__(self):
+        '''
+        Returns the length of the dataset
+        Returns:
+            int
+        '''
+        return len(self.images)
+    
+    def __getitem__(self, idx):
+        '''
+        Returns the image and mask at the given index
+        Args:
+            idx: int
+        Returns:
+            image: torch.Tensor
+            mask: torch.Tensor
+        '''
+        image = self.images[idx]['image']
+        mask = self.images[idx]['segmentations']
+        # if mask is a list, take the first one
+        if isinstance(mask, list):
+            mask = mask[0]
+        # crop both to the smallest dimension, check if it is height or width, should be a center crop
+        if image.size[0] < image.size[1]:
+            start = np.random.randint(0, image.size[1] - image.size[0])
+            image = image.crop((0, start, image.size[0], start + image.size[0]))
+            mask = mask.crop((0, start, mask.size[0], start + mask.size[0]))
+        elif image.size[0] > image.size[1]:
+            start = np.random.randint(0, image.size[0] - image.size[1])
+            image = image.crop((start, 0, start + image.size[1], image.size[1]))
+            mask = mask.crop((start, 0, start + mask.size[1], mask.size[1]))
+        
+        # resize the image and mask to the input_shape
+        image = image.resize((self.size, self.size))
+        mask = mask.resize((self.size, self.size), resample=Image.NEAREST)
+        image = self.transform_fn(image)
+        mask = self.mask_transform_fn(mask)
+        return image, mask
+    
+def ade20k_dataloader(batch_size, num_workers, mode='train', input_shape=None):
+    '''
+    Returns a DataLoader for the ADE20KDataset
+    Args:
+        batch_size: int
+        num_workers: int
+        mode: str
+        input_shape: int
+    Returns:
+        DataLoader
+    '''
+    transform = transforms.Compose([
+        transforms.Resize((input_shape, input_shape)) if input_shape is not None else transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
+    transform_mask = transforms.Compose([
+        transforms.Resize((input_shape, input_shape), interpolation=transforms.InterpolationMode.NEAREST) if input_shape is not None else transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
+    input_shape = input_shape if input_shape is not None else 256
+
+    dataset = ADE20KDataset(transform_fn=transform, mask_transform_fn=transform_mask, mode=mode, size=input_shape)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=(mode != 'train'))
+
+    return input_shape, 3, dataloader
+
+
 class CelebHQMaskedDataset(Dataset):
     def __init__(self, transform_fn, mode='train'):
         '''

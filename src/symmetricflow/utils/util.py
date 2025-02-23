@@ -21,7 +21,7 @@ def parse_args_SymmetricFlowMatching():
     argparser.add_argument('--resblock_updown', type=bool, default = False, help='use residual blocks for up/downsampling')
     argparser.add_argument('--use_new_attention_order', type=bool, default = False, help='use a different attention pattern for potentially increased efficiency')
     argparser.add_argument('--sample_and_save_freq', type=int, default=5, help='sample and save frequency')
-    argparser.add_argument('--dataset', type=str, default='celeba', help='dataset name', choices=['celeba', 'cityscapes', 'coco'])
+    argparser.add_argument('--dataset', type=str, default='celeba', help='dataset name', choices=['celeba', 'cityscapes', 'coco', 'ade20k'])
     argparser.add_argument('--checkpoint', type=str, default=None, help='checkpoint path')
     argparser.add_argument('--num_samples', type=int, default=16, help='number of samples')
     argparser.add_argument('--out_dataset', type=str, default='fashionmnist', help='outlier dataset name', choices=['mnist', 'cifar10', 'cifar100', 'places365', 'dtd', 'fashionmnist', 'chestmnist', 'octmnist', 'tissuemnist', 'pneumoniamnist', 'svhn', 'tinyimagenet','imagenet'])

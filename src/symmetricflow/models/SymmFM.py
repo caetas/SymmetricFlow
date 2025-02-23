@@ -927,9 +927,9 @@ class SymmFM(nn.Module):
         '''
         # check if it is a distributted model or not
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-            return self.model.module.encode(x)
+            return self.vae.module.encode(x)
         else:
-            return self.model.encode(x)
+            return self.vae.encode(x)
         
     def decode(self, z):
         '''
@@ -938,9 +938,9 @@ class SymmFM(nn.Module):
         '''
         # check if it is a distributted model or not
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-            return self.model.module.decode(z)
+            return self.vae.module.decode(z)
         else:
-            return self.model.decode(z)
+            return self.vae.decode(z)
     
     @torch.no_grad()
     def sample(self, n_samples, mask, train=True, accelerate=None, fid=False):
@@ -985,8 +985,10 @@ class SymmFM(nn.Module):
         
         if self.vae is not None:
             if train:
-                samples = self.vae.module.decode(samples / 0.18215).sample
-                mask = self.vae.module.decode(mask / 0.18215).sample
+                #samples = self.vae.module.decode(samples / 0.18215).sample
+                #mask = self.vae.module.decode(mask / 0.18215).sample
+                samples = self.decode(samples / 0.18215).sample
+                mask = self.decode(mask / 0.18215).sample
             else:
                 samples = self.vae.decode(samples / 0.18215).sample
                 mask = self.vae.decode(mask / 0.18215).sample
@@ -1059,8 +1061,10 @@ class SymmFM(nn.Module):
         
         if self.vae is not None:
             if train:
-                samples = self.vae.module.decode(samples / 0.18215).sample
-                x = self.vae.module.decode(x / 0.18215).sample
+                #samples = self.vae.module.decode(samples / 0.18215).sample
+                #x = self.vae.module.decode(x / 0.18215).sample
+                samples = self.decode(samples / 0.18215).sample
+                x = self.decode(x / 0.18215).sample
             else:
                 samples = self.vae.decode(samples / 0.18215).sample
                 x = self.vae.decode(x / 0.18215).sample
@@ -1166,8 +1170,10 @@ class SymmFM(nn.Module):
                             if x.shape[1] == 1:
                                 x = torch.cat((x, x, x), dim=1)
                                 mask = torch.cat((mask, mask, mask), dim=1)
-                            x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
-                            mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
+                            #x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
+                            x = self.encode(x).latent_dist.sample().mul_(0.18215)
+                            #mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
+                            mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
 
                     optimizer.zero_grad()
                     loss_image, loss_mask = self.symmetrical_flow_matching_loss(x, mask)
@@ -1200,8 +1206,10 @@ class SymmFM(nn.Module):
                         if x.shape[1] == 1:
                             x = torch.cat((x, x, x), dim=1)
                             mask = torch.cat((mask, mask, mask), dim=1)
-                        x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
-                        mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
+                        #x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
+                        #mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
+                        x = self.encode(x).latent_dist.sample().mul_(0.18215)
+                        mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
                 self.sample(x.shape[0], mask, accelerate=accelerate)
                 self.segment(x.shape[0], x, accelerate=accelerate)
             
