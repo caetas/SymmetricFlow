@@ -1263,7 +1263,10 @@ class SymmFM(nn.Module):
 
         metric = JaccardIndex(task='multiclass', num_classes=171)
         miou = metric(pred, gt)
-        print(f"Mean IoU: {miou}")
+        
+        # save the mIoU to a file
+        with open(f'./../../results/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_miou.txt', 'w') as f:
+            f.write(str(miou.item()))
 
 
 
