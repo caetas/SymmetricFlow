@@ -1325,7 +1325,7 @@ class SymmFM(nn.Module):
                 cv2.imwrite(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}/{cnt}.png", cv2.cvtColor(samp, cv2.COLOR_RGB2BGR) if samp.shape[-1] == 3 else samp)
                 cnt += 1
             
-            if cnt > 20:
+            if cnt >= 50000:
                 break
 
         # save the lpips total mean to a file
