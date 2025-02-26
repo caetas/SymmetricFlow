@@ -1232,6 +1232,35 @@ class SymmFM(nn.Module):
         if checkpoint_path is not None:
             self.model.load_state_dict(torch.load(checkpoint_path, weights_only=False))
 
+    def compute_mIoU(self, pred, gt, num_classes):
+        """
+        Compute mean Intersection over Union (mIoU).
+        
+        Args:
+            pred (torch.Tensor): Predictions of shape (B, 1, H, W) or (B, H, W).
+            gt (torch.Tensor): Ground truth of shape (B, H, W).
+            num_classes (int): Number of classes.
+
+        Returns:
+            float: mean IoU score.
+        """
+        if pred.shape[1] == 1:  # If shape is (B, 1, H, W), squeeze the second dimension
+            pred = pred.squeeze(1)
+
+        ious = []
+        for c in range(num_classes):
+            pred_c = (pred == c)  # Pixels predicted as class c
+            gt_c = (gt == c)      # Ground truth pixels of class c
+            
+            intersection = (pred_c & gt_c).sum(dim=(1, 2))  # Sum over spatial dimensions
+            union = (pred_c | gt_c).sum(dim=(1, 2))         # Sum over spatial dimensions
+
+            iou = intersection.float() / (union.float() + 1e-6)  # Avoid division by zero
+            ious.append(iou)
+
+        miou = torch.stack(ious).mean()  # Mean over classes
+        return miou.item()
+
     @torch.no_grad()
     def evaluate_segmentation(self, dataloader):
         '''
@@ -1254,15 +1283,25 @@ class SymmFM(nn.Module):
                     x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
                     mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
 
-            predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
-            pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
+            average_masks = []
+            for i in range(10):
+                predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
+                #average_masks.append(predicted_masks)
+                average_masks.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
+            # predicted mask should be the most common value for each pixel
+            predicted_masks = torch.stack(average_masks).mode(0).values
+            pred.append(predicted_masks)
+            if len(pred) == 2:
+                break
 
         #gt should be a tensor
         gt = torch.cat(gt)
         pred = torch.cat(pred)
 
-        metric = JaccardIndex(task='multiclass', num_classes=171)
+        metric = JaccardIndex(task='multiclass', num_classes=171, ignore_index=171)
         miou = metric(pred, gt)
+
+        print(f"mIoU: {miou.item()}")
 
         # creaste a directory to save the results
         if not os.path.exists('./../../results'):
