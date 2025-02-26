@@ -41,7 +41,6 @@ def parse_args_SymmetricFlowMatching():
     argparser.add_argument('--beta', type=float, default=15, help='Dequantization factor for the mask')
     argparser.add_argument('--image_weight', type=float, default=.9, help='Weight for the image loss')
     argparser.add_argument('--eval', action='store_true', default=False, help='evaluate model')
-    argparser.add_argument('--fid', action='store_true', default=False, help='calculate FID')
     args = argparser.parse_args()
     args.channel_mult = tuple(args.channel_mult)
     args.attention_resolutions = tuple(args.attention_resolutions)
