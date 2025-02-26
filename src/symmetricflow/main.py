@@ -23,7 +23,7 @@ if __name__ == '__main__':
         model = SymmFM(args, image_shape, channels)
         model.train_model(dataloader, dataloader_val)
 
-    else:
+    elif args.sample:
         if args.dataset == 'celeba':
             image_shape, channels, dataloader = celeb_hq_masked_dataloader(16, args.num_workers, 'validation', args.size)
         elif args.dataset == 'cityscapes':
@@ -53,3 +53,32 @@ if __name__ == '__main__':
         
         model.sample(16, mask, train=False)
         model.segment(16, x, train=False)
+    
+    elif args.eval:
+        if args.dataset == 'celeba':
+            image_shape, channels, dataloader = celeb_hq_masked_dataloader(args.batch_size, args.num_workers, 'validation', args.size)
+        elif args.dataset == 'cityscapes':
+            image_shape, channels, dataloader = cityscapes_dataloader(args.batch_size, args.num_workers, 'validation', args.size)
+        elif args.dataset == 'ade20k':
+            image_shape, channels, dataloader = ade20k_dataloader(args.batch_size, args.num_workers, 'validation', args.size)
+        else:
+            image_shape, channels, dataloader = cocostuff_dataloader(args.batch_size, args.num_workers, 'val', args.size)
+
+        model = SymmFM(args, image_shape, channels)
+        model.load_checkpoint(args.checkpoint)
+        #model.fid_sample(dataloader)
+        model.evaluate_segmentation(dataloader)
+    
+    elif args.fid:
+        if args.dataset == 'celeba':
+            image_shape, channels, dataloader = celeb_hq_masked_dataloader(args.batch_size, args.num_workers, 'validation', args.size)
+        elif args.dataset == 'cityscapes':
+            image_shape, channels, dataloader = cityscapes_dataloader(args.batch_size, args.num_workers, 'validation', args.size)
+        elif args.dataset == 'ade20k':
+            image_shape, channels, dataloader = ade20k_dataloader(args.batch_size, args.num_workers, 'validation', args.size)
+        else:
+            image_shape, channels, dataloader = cocostuff_dataloader(args.batch_size, args.num_workers, 'val', args.size)
+
+        model = SymmFM(args, image_shape, channels)
+        model.load_checkpoint(args.checkpoint)
+        model.fid_sample(dataloader)
