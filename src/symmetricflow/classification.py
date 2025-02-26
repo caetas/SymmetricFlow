@@ -1,4 +1,4 @@
-from data.Dataloaders import mnist_train_loader, mnist_val_loader
+from data.Dataloaders import mnist_train_loader, mnist_val_loader, cifar10_train_loader, cifar10_val_loader
 from utils.util import parse_args_SymmetricFlowMatchingClass
 from models.SymmFMClass import SymmFMClass
 import torch
@@ -8,17 +8,35 @@ if __name__ == '__main__':
 
     if args.train:
         
-        image_shape, channels, dataloader = mnist_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
-        _, _, dataloader_val = mnist_val_loader(16, normalize=True)
+        if args.dataset == 'mnist':
+            image_shape, channels, dataloader = mnist_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
+            _, _, dataloader_val = mnist_val_loader(16, normalize=True)
+        else:
+            image_shape, channels, dataloader = cifar10_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
+            _, _, dataloader_val = cifar10_val_loader(16, normalize=True)
 
         model = SymmFMClass(args, image_shape, channels)
         #model.sample(16, mask=mask, train=False)
         #model.segment(16, x, train=False)
         model.train_model(dataloader, dataloader_val)
 
+    elif args.sample:
+        
+        if args.dataset == 'mnist':
+            image_shape, channels, dataloader = mnist_val_loader(16, normalize=True)
+        else:
+            image_shape, channels, dataloader = cifar10_val_loader(16, normalize=True)
+
+        model = SymmFMClass(args, image_shape, channels)
+        model.load_checkpoint(args.checkpoint)
+        model.sample(16, mask=None, train=False)
+
     else:
         
-        image_shape, channels, dataloader = mnist_val_loader(256, normalize=True)
+        if args.dataset == 'mnist':
+            image_shape, channels, dataloader = mnist_val_loader(16, normalize=True)
+        else:
+            image_shape, channels, dataloader = cifar10_val_loader(16, normalize=True)
 
         model = SymmFMClass(args, image_shape, channels)
         model.load_checkpoint(args.checkpoint)

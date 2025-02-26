@@ -24,3 +24,4 @@ accelerate
 datasets
 matplotlib
 opencv-python
+scikit-learn

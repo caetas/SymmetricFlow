@@ -24,6 +24,8 @@ import copy
 from abc import abstractmethod
 import cv2
 from utils.masks import mask_to_class
+from torchmetrics import JaccardIndex
+from lpips import LPIPS
 
 # PyTorch 1.7 has SiLU, but we support PyTorch 1.5.
 class SiLU(nn.Module):
@@ -927,9 +929,9 @@ class SymmFM(nn.Module):
         '''
         # check if it is a distributted model or not
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-            return self.model.module.encode(x)
+            return self.vae.module.encode(x)
         else:
-            return self.model.encode(x)
+            return self.vae.encode(x)
         
     def decode(self, z):
         '''
@@ -938,9 +940,9 @@ class SymmFM(nn.Module):
         '''
         # check if it is a distributted model or not
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-            return self.model.module.decode(z)
+            return self.vae.module.decode(z)
         else:
-            return self.model.decode(z)
+            return self.vae.decode(z)
     
     @torch.no_grad()
     def sample(self, n_samples, mask, train=True, accelerate=None, fid=False):
@@ -985,19 +987,21 @@ class SymmFM(nn.Module):
         
         if self.vae is not None:
             if train:
-                samples = self.vae.decode(samples / 0.18215).sample
-                mask = self.vae.decode(mask / 0.18215).sample
+                #samples = self.vae.module.decode(samples / 0.18215).sample
+                #mask = self.vae.module.decode(mask / 0.18215).sample
+                samples = self.decode(samples / 0.18215).sample
+                mask = self.decode(mask / 0.18215).sample
             else:
                 samples = self.vae.decode(samples / 0.18215).sample
                 mask = self.vae.decode(mask / 0.18215).sample
+
+        if fid:
+            return samples
 
         samples = samples*0.5 + 0.5
         samples = samples.clamp(0, 1)
         mask = mask*0.5 + 0.5
         mask = mask.clamp(0, 1)
-
-        if fid:
-            return samples
         
         fig = plt.figure(figsize=(20, 10))
         grid_mask = make_grid(mask, nrow=int(n_samples**0.5), padding=0)
@@ -1018,7 +1022,7 @@ class SymmFM(nn.Module):
         plt.close(fig)
 
     @torch.no_grad()
-    def segment(self, n_samples, x, train=True, accelerate=None):
+    def segment(self, n_samples, x, train=True, accelerate=None, eval=False):
         '''
         Segment images
         :param n_samples: number of samples
@@ -1059,11 +1063,16 @@ class SymmFM(nn.Module):
         
         if self.vae is not None:
             if train:
-                samples = self.vae.decode(samples / 0.18215).sample
-                x = self.vae.decode(x / 0.18215).sample
+                #samples = self.vae.module.decode(samples / 0.18215).sample
+                #x = self.vae.module.decode(x / 0.18215).sample
+                samples = self.decode(samples / 0.18215).sample
+                x = self.decode(x / 0.18215).sample
             else:
                 samples = self.vae.decode(samples / 0.18215).sample
                 x = self.vae.decode(x / 0.18215).sample
+
+        if eval:
+            return samples
 
         samples = samples*0.5 + 0.5
         samples = samples.clamp(0, 1)
@@ -1166,8 +1175,10 @@ class SymmFM(nn.Module):
                             if x.shape[1] == 1:
                                 x = torch.cat((x, x, x), dim=1)
                                 mask = torch.cat((mask, mask, mask), dim=1)
-                            x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                            mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
+                            #x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
+                            x = self.encode(x).latent_dist.sample().mul_(0.18215)
+                            #mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
+                            mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
 
                     optimizer.zero_grad()
                     loss_image, loss_mask = self.symmetrical_flow_matching_loss(x, mask)
@@ -1200,8 +1211,10 @@ class SymmFM(nn.Module):
                         if x.shape[1] == 1:
                             x = torch.cat((x, x, x), dim=1)
                             mask = torch.cat((mask, mask, mask), dim=1)
-                        x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                        mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
+                        #x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
+                        #mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
+                        x = self.encode(x).latent_dist.sample().mul_(0.18215)
+                        mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
                 self.sample(x.shape[0], mask, accelerate=accelerate)
                 self.segment(x.shape[0], x, accelerate=accelerate)
             
@@ -1228,10 +1241,10 @@ class SymmFM(nn.Module):
         self.model.eval()
         gt = []
         pred = []
-        for x, mask in dataloader:
+        for x, mask in tqdm(dataloader, desc='Evaluating', leave=True):
             x = x.to(self.device)
             mask = mask.to(self.device)
-            gt.append(mask_to_class(mask, self.args.dataset))
+            gt.append(mask_to_class(mask, self.args.dataset).cpu())
 
             if self.vae is not None:
                 with torch.no_grad():
@@ -1241,15 +1254,30 @@ class SymmFM(nn.Module):
                     x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
                     mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
 
-            predicted_masks = self.segment(x.shape[0], x, train=False)
-            pred.append(mask_to_class(predicted_masks, self.args.dataset))
+            predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
+            pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
 
-        gt = np.concatenate(gt)
-        pred = np.concatenate(pred)
+        #gt should be a tensor
+        gt = torch.cat(gt)
+        pred = torch.cat(pred)
+
+        metric = JaccardIndex(task='multiclass', num_classes=171)
+        miou = metric(pred, gt)
+
+        # creaste a directory to save the results
+        if not os.path.exists('./../../results'):
+            os.makedirs('./../../results')
+        if not os.path.exists(f'./../../results/{self.dataset}'):
+            os.makedirs(f'./../../results/{self.dataset}')
+        
+        # save the mIoU to a file
+        with open(f'./../../results/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_miou.txt', 'w') as f:
+            f.write(str(miou.item()))
+
 
 
     @torch.no_grad()
-    def fid_sample(self, batch_size=16):
+    def fid_sample(self, dataloader, batch_size=16):
         '''
         Sample images for FID calculation
         :param batch_size: batch size
@@ -1269,6 +1297,53 @@ class SymmFM(nn.Module):
         if not os.path.exists(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}"):
             os.makedirs(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}")
         cnt = 0
+
+        lpips_total = []
+
+        lpips_loss = LPIPS(net='alex').to(self.device)
+        lpips_loss.eval()
+
+        for image, mask in tqdm(dataloader, desc='FID Sampling', leave=True):
+            image = image.to(self.device)
+            mask = mask.to(self.device)
+            # repeat mask 17 times
+            mask = mask.repeat(17, 1, 1, 1)
+            # dequantize the mask
+            mask = self.dequantize_mask(mask)
+
+            if self.vae is not None:
+                with torch.no_grad():
+                    if image.shape[1] == 1:
+                        mask = torch.cat((mask, mask, mask), dim=1)
+                    mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
+            
+
+            samples = self.sample(mask.shape[0], mask, train=False, fid=True)
+
+            # get lpips loss between samples and image
+            loss = lpips_loss(samples, image).mean()
+            lpips_total.append(loss.item())
+
+            samples = samples*0.5 + 0.5
+            samples = samples.clamp(0, 1)
+            samples = samples.cpu().numpy()
+            samples = (samples*255).astype(np.uint8)
+            samples = samples.transpose(0, 2, 3, 1)
+
+            for samp in samples:
+                cv2.imwrite(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}/{cnt}.png", cv2.cvtColor(samp, cv2.COLOR_RGB2BGR) if samp.shape[-1] == 3 else samp)
+                cnt += 1
+            
+            if cnt >= 50000:
+                break
+
+        # save the lpips total mean to a file
+        with open(f'./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}/lpips_total.txt', 'w') as f:
+            f.write(str(np.mean(lpips_total)))
+            
+        '''
+
+
         for i in tqdm(range(50000//batch_size), desc='FID Sampling', leave=True):
             samps = self.sample(batch_size, train=False, fid=True).cpu().numpy()
             samps = (samps*255).astype(np.uint8)
@@ -1277,6 +1352,6 @@ class SymmFM(nn.Module):
                 cv2.imwrite(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}/{cnt}.png", cv2.cvtColor(samp, cv2.COLOR_RGB2BGR) if samp.shape[-1] == 3 else samp)
                 cnt += 1 
 
-
+        '''
 
 
