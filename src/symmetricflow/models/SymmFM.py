@@ -1220,7 +1220,7 @@ class SymmFM(nn.Module):
             
             if (epoch+1) % self.snapshot == 0:
                 ema_to_save = accelerate.unwrap_model(self.ema)
-                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatching', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_epoch{epoch+1}.pt"))
+                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatching', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_beta{self.beta}_epoch{epoch+1}.pt"))
 
         accelerate.end_training()
 
