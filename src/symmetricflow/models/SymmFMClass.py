@@ -1097,7 +1097,8 @@ class SymmFMClass(nn.Module):
         :param mask: mask
         :param beta: beta value
         '''
-        interval = (self.beta/2)/(self.n_classes-1)
+        #interval = (self.beta/2)/(self.n_classes-1)
+        interval = 1.5/(self.n_classes-1)
         label = (label/(self.n_classes-1))*2.0 - 1.0
         mask = (self.beta/2)*torch.ones(label.shape[0], 1, self.img_size, self.img_size, device=self.device)*label[:, None, None, None]
         mask = mask + interval*(torch.rand_like(mask) - 0.5)

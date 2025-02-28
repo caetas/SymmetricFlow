@@ -25,13 +25,13 @@ if __name__ == '__main__':
 
     elif args.sample:
         if args.dataset == 'celeba':
-            image_shape, channels, dataloader = celeb_hq_masked_dataloader(16, args.num_workers, 'validation', args.size)
+            image_shape, channels, dataloader = celeb_hq_masked_dataloader(args.num_samples, args.num_workers, 'validation', args.size)
         elif args.dataset == 'cityscapes':
-            image_shape, channels, dataloader = cityscapes_dataloader(16, args.num_workers, 'validation', args.size)
+            image_shape, channels, dataloader = cityscapes_dataloader(args.num_samples, args.num_workers, 'validation', args.size)
         elif args.dataset == 'ade20k':
-            image_shape, channels, dataloader = ade20k_dataloader(16, args.num_workers, 'validation', args.size)
+            image_shape, channels, dataloader = ade20k_dataloader(args.num_samples, args.num_workers, 'validation', args.size)
         else:
-            image_shape, channels, dataloader = cocostuff_dataloader(16, args.num_workers, 'val', args.size)
+            image_shape, channels, dataloader = cocostuff_dataloader(args.num_samples, args.num_workers, 'val', args.size)
 
         model = SymmFM(args, image_shape, channels)
         model.load_checkpoint(args.checkpoint)
@@ -51,8 +51,8 @@ if __name__ == '__main__':
                 #mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
                 mask = model.encode(mask).latent_dist.mode().mul_(0.18215)
         
-        model.sample(16, mask, train=False)
-        model.segment(16, x, train=False)
+        model.sample(args.num_samples, mask, train=False)
+        model.segment(args.num_samples, x, train=False)
     
     elif args.eval:
         if args.dataset == 'celeba':
