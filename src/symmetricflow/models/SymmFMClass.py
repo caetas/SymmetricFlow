@@ -1115,6 +1115,7 @@ class SymmFMClass(nn.Module):
         mask = mask.mean(dim=(1, 2, 3)) 
         mask *= (self.n_classes-1)
         label = mask.round()
+        label = label.clamp(0, self.n_classes-1)
 
         return label
 
@@ -1293,8 +1294,11 @@ class SymmFMClass(nn.Module):
         if not os.path.exists(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}"):
             os.makedirs(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}")
         cnt = 0
+        labels = torch.arange(50000, device=self.device) % self.n_classes
         for i in tqdm(range(50000//batch_size), desc='FID Sampling', leave=True):
-            samps = self.sample(batch_size, train=False, fid=True).cpu().numpy()
+            mask = self.dequantize_class(labels[i*batch_size:(i+1)*batch_size])
+            mask = mask.to(self.device)
+            samps = self.sample(batch_size, mask, train=False, fid=True).cpu().numpy()
             samps = (samps*255).astype(np.uint8)
             samps = samps.transpose(0, 2, 3, 1)
             for samp in samps:
