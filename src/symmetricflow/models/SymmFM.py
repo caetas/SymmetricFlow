@@ -1271,7 +1271,7 @@ class SymmFM(nn.Module):
         gt = torch.cat(gt)
         pred = torch.cat(pred)
 
-        metric = JaccardIndex(task='multiclass', num_classes=171, ignore_index=171)
+        metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
         miou = metric(pred, gt)
 
         print(f"mIoU: {miou.item()}")
