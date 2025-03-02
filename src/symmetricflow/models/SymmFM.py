@@ -1266,15 +1266,10 @@ class SymmFM(nn.Module):
             # predicted mask should be the most common value for each pixel
             #predicted_masks = torch.stack(average_masks).mode(0).values
             #pred.append(predicted_masks)
-            if len(gt) >= 5:
-                break
 
         #gt should be a tensor
         gt = torch.cat(gt)
         pred = torch.cat(pred)
-
-        print(f"gt shape: {gt.shape}")
-        print(f"pred shape: {pred.shape}")
 
         metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
         miou = metric(pred, gt)
