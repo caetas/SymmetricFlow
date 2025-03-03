@@ -56,6 +56,14 @@ def mask_to_class(masks, dataset):
     # Assign each pixel to the closest class
     class_labels = torch.argmin(distances, dim=1)  # (B, H, W)
 
+    # plot the first mask based on the colors in the color_list
+    colored_mask = torch.zeros_like(masks)
+    for i, color in enumerate(color_list):
+        colored_mask += (class_labels == i).unsqueeze(1).float() * color
+
+    plt.imshow(colored_mask[0].permute(1, 2, 0).cpu().numpy().astype(np.uint8))
+    plt.show()
+
     return class_labels  # Shape: (B, H, W), dtype=torch.long
 
 

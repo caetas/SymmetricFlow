@@ -410,7 +410,9 @@ class CocoStuffDataset(Dataset):
         for unique in np.unique(mask):
             if unique == 255:
                 unique = len(self.palette) - 1
-            colored_mask[mask == unique] = self.palette[unique]
+                colored_mask[mask == 255] = self.palette[unique]
+            else:
+                colored_mask[mask == unique] = self.palette[unique]
         return Image.fromarray(colored_mask)
     
 
