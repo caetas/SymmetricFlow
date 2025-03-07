@@ -1069,8 +1069,7 @@ class SymmFM(nn.Module):
                 x = self.decode(x / 0.18215).sample
             else:
                 samples = self.vae.decode(samples / 0.18215).sample
-                x = self.vae.decode(x / 0.18215).sample
-
+                x = self.vae.decode(x / 0.18215).sample    
         if eval:
             return samples
 
