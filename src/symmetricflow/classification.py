@@ -39,9 +39,9 @@ if __name__ == '__main__':
     elif args.classification:
         
         if args.dataset == 'mnist':
-            image_shape, channels, dataloader = mnist_val_loader(16, normalize=True)
+            image_shape, channels, dataloader = mnist_val_loader(args.batch_size, normalize=True)
         else:
-            image_shape, channels, dataloader = cifar10_val_loader(16, normalize=True)
+            image_shape, channels, dataloader = cifar10_val_loader(args.batch_size, normalize=True)
 
         model = SymmFMClass(args, image_shape, channels)
         model.load_checkpoint(args.checkpoint)

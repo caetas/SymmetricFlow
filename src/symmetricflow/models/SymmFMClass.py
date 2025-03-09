@@ -921,6 +921,7 @@ class SymmFMClass(nn.Module):
 
         return (predicted_flow[:, :self.channels] - optimal_flow[:, :self.channels]).square().mean(), (predicted_flow[:, self.channels:] - optimal_flow[:, self.channels:]).square().mean()
     
+    @torch.no_grad()
     def encode(self, x):
         '''
         Encode the input image
@@ -931,7 +932,8 @@ class SymmFMClass(nn.Module):
             return self.model.module.encode(x)
         else:
             return self.model.encode(x)
-        
+
+    @torch.no_grad()    
     def decode(self, z):
         '''
         Decode the input image
