@@ -839,7 +839,7 @@ class SymmFM(nn.Module):
         super(SymmFM, self).__init__()
         self.args = args
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.vae =  AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-mse").to(self.device) if args.latent else None
+        self.vae =  AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-mse").eval().to(self.device) if args.latent else None
         self.channels = in_channels
         self.img_size = img_size
 
@@ -988,12 +988,8 @@ class SymmFM(nn.Module):
         samples = samples[:, :self.channels]
         
         if self.vae is not None:
-            if train:
-                samples = self.decode(samples / 0.18215).sample
-                mask = self.decode(mask / 0.18215).sample
-            else:
-                samples = self.vae.decode(samples / 0.18215).sample
-                mask = self.vae.decode(mask / 0.18215).sample
+            samples = self.decode(samples / 0.18215).sample
+            mask = self.decode(mask / 0.18215).sample
 
         if fid:
             return samples
@@ -1062,12 +1058,8 @@ class SymmFM(nn.Module):
         samples = samples[:, self.channels:]
         
         if self.vae is not None:
-            if train:
-                samples = self.decode(samples / 0.18215).sample
-                x = self.decode(x / 0.18215).sample
-            else:
-                samples = self.vae.decode(samples / 0.18215).sample
-                x = self.vae.decode(x / 0.18215).sample
+            samples = self.decode(samples / 0.18215).sample
+            x = self.decode(x / 0.18215).sample
     
         if eval:
             return samples
@@ -1247,27 +1239,19 @@ class SymmFM(nn.Module):
                     if x.shape[1] == 1:
                         x = torch.cat((x, x, x), dim=1)
                         mask = torch.cat((mask, mask, mask), dim=1)
-                    x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                    mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
+                    x = self.encode(x).latent_dist.sample().mul_(0.18215)
 
-            '''
-            average_masks = []
-            for i in range(10):
-                predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
-                #average_masks.append(predicted_masks)
-                average_masks.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
-            '''
             predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
             pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
-            # predicted mask should be the most common value for each pixel
-            #predicted_masks = torch.stack(average_masks).mode(0).values
-            #pred.append(predicted_masks)
 
-        #gt should be a tensor
         gt = torch.cat(gt)
         pred = torch.cat(pred)
 
-        metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
+        if self.args.dataset == 'coco':
+            metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
+        else:
+            metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
+
         miou = metric(pred, gt)
 
         print(f"mIoU: {miou.item()}")
