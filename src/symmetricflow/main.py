@@ -46,9 +46,7 @@ if __name__ == '__main__':
                 if x.shape[1] == 1:
                     x = torch.cat((x, x, x), dim=1)
                     mask = torch.cat((mask, mask, mask), dim=1)
-                #x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
                 x = model.encode(x).latent_dist.sample().mul_(0.18215)
-                #mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
                 mask = model.encode(mask).latent_dist.mode().mul_(0.18215)
         
         model.sample(args.num_samples, mask, train=False)

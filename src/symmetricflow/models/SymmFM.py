@@ -933,6 +933,7 @@ class SymmFM(nn.Module):
             return self.vae.module.encode(x)
         else:
             return self.vae.encode(x)
+        
     @torch.no_grad()    
     def decode(self, z):
         '''
@@ -988,8 +989,6 @@ class SymmFM(nn.Module):
         
         if self.vae is not None:
             if train:
-                #samples = self.vae.module.decode(samples / 0.18215).sample
-                #mask = self.vae.module.decode(mask / 0.18215).sample
                 samples = self.decode(samples / 0.18215).sample
                 mask = self.decode(mask / 0.18215).sample
             else:
@@ -1064,8 +1063,6 @@ class SymmFM(nn.Module):
         
         if self.vae is not None:
             if train:
-                #samples = self.vae.module.decode(samples / 0.18215).sample
-                #x = self.vae.module.decode(x / 0.18215).sample
                 samples = self.decode(samples / 0.18215).sample
                 x = self.decode(x / 0.18215).sample
             else:
@@ -1212,8 +1209,6 @@ class SymmFM(nn.Module):
                         if x.shape[1] == 1:
                             x = torch.cat((x, x, x), dim=1)
                             mask = torch.cat((mask, mask, mask), dim=1)
-                        #x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
-                        #mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
                         x = self.encode(x).latent_dist.sample().mul_(0.18215)
                         mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
                 self.sample(x.shape[0], mask, accelerate=accelerate)
