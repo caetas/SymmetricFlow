@@ -25,3 +25,5 @@ datasets
 matplotlib
 opencv-python
 scikit-learn
+torchmetrics
+lpips

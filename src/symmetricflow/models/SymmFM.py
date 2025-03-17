@@ -839,7 +839,7 @@ class SymmFM(nn.Module):
         super(SymmFM, self).__init__()
         self.args = args
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.vae =  AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-mse").to(self.device) if args.latent else None
+        self.vae =  AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-mse").eval().to(self.device) if args.latent else None
         self.channels = in_channels
         self.img_size = img_size
 
@@ -922,6 +922,7 @@ class SymmFM(nn.Module):
 
         return (predicted_flow[:, :self.channels] - optimal_flow[:, :self.channels]).square().mean(), (predicted_flow[:, self.channels:] - optimal_flow[:, self.channels:]).square().mean()
     
+    @torch.no_grad()
     def encode(self, x):
         '''
         Encode the input image
@@ -933,6 +934,7 @@ class SymmFM(nn.Module):
         else:
             return self.vae.encode(x)
         
+    @torch.no_grad()    
     def decode(self, z):
         '''
         Decode the input image
@@ -986,14 +988,8 @@ class SymmFM(nn.Module):
         samples = samples[:, :self.channels]
         
         if self.vae is not None:
-            if train:
-                #samples = self.vae.module.decode(samples / 0.18215).sample
-                #mask = self.vae.module.decode(mask / 0.18215).sample
-                samples = self.decode(samples / 0.18215).sample
-                mask = self.decode(mask / 0.18215).sample
-            else:
-                samples = self.vae.decode(samples / 0.18215).sample
-                mask = self.vae.decode(mask / 0.18215).sample
+            samples = self.decode(samples / 0.18215).sample
+            mask = self.decode(mask / 0.18215).sample
 
         if fid:
             return samples
@@ -1062,15 +1058,9 @@ class SymmFM(nn.Module):
         samples = samples[:, self.channels:]
         
         if self.vae is not None:
-            if train:
-                #samples = self.vae.module.decode(samples / 0.18215).sample
-                #x = self.vae.module.decode(x / 0.18215).sample
-                samples = self.decode(samples / 0.18215).sample
-                x = self.decode(x / 0.18215).sample
-            else:
-                samples = self.vae.decode(samples / 0.18215).sample
-                x = self.vae.decode(x / 0.18215).sample
-
+            samples = self.decode(samples / 0.18215).sample
+            x = self.decode(x / 0.18215).sample
+    
         if eval:
             return samples
 
@@ -1211,8 +1201,6 @@ class SymmFM(nn.Module):
                         if x.shape[1] == 1:
                             x = torch.cat((x, x, x), dim=1)
                             mask = torch.cat((mask, mask, mask), dim=1)
-                        #x = self.vae.module.encode(x).latent_dist.sample().mul_(0.18215)
-                        #mask = self.vae.module.encode(mask).latent_dist.mode().mul_(0.18215)
                         x = self.encode(x).latent_dist.sample().mul_(0.18215)
                         mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
                 self.sample(x.shape[0], mask, accelerate=accelerate)
@@ -1220,7 +1208,7 @@ class SymmFM(nn.Module):
             
             if (epoch+1) % self.snapshot == 0:
                 ema_to_save = accelerate.unwrap_model(self.ema)
-                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatching', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_epoch{epoch+1}.pt"))
+                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatching', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_beta{self.beta}_epoch{epoch+1}.pt"))
 
         accelerate.end_training()
 
@@ -1251,18 +1239,22 @@ class SymmFM(nn.Module):
                     if x.shape[1] == 1:
                         x = torch.cat((x, x, x), dim=1)
                         mask = torch.cat((mask, mask, mask), dim=1)
-                    x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                    mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
+                    x = self.encode(x).latent_dist.sample().mul_(0.18215)
 
             predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
             pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
 
-        #gt should be a tensor
         gt = torch.cat(gt)
         pred = torch.cat(pred)
 
-        metric = JaccardIndex(task='multiclass', num_classes=171)
+        if self.args.dataset == 'coco':
+            metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
+        else:
+            metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
+
         miou = metric(pred, gt)
+
+        print(f"mIoU: {miou.item()}")
 
         # creaste a directory to save the results
         if not os.path.exists('./../../results'):

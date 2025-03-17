@@ -29,15 +29,31 @@ if __name__ == '__main__':
 
         model = SymmFMClass(args, image_shape, channels)
         model.load_checkpoint(args.checkpoint)
-        model.sample(16, mask=None, train=False)
 
-    else:
+        # create 16 masks for the 16 samples, based on the classes
+        labels = torch.arange(0, args.num_samples).to(model.device) % args.n_classes
+        mask = model.dequantize_class(labels)
+        mask = mask.to(model.device)
+        model.sample(args.num_samples, mask=mask, train=False)
+
+    elif args.classification:
         
         if args.dataset == 'mnist':
-            image_shape, channels, dataloader = mnist_val_loader(16, normalize=True)
+            image_shape, channels, dataloader = mnist_val_loader(args.batch_size, normalize=True)
         else:
-            image_shape, channels, dataloader = cifar10_val_loader(16, normalize=True)
+            image_shape, channels, dataloader = cifar10_val_loader(args.batch_size, normalize=True)
 
         model = SymmFMClass(args, image_shape, channels)
         model.load_checkpoint(args.checkpoint)
         model.evaluate_segmentation(dataloader)
+
+    else:
+        
+        if args.dataset == 'mnist':
+            image_shape, channels, _ = mnist_val_loader(args.batch_size, normalize=True)
+        else:
+            image_shape, channels, _ = cifar10_val_loader(args.batch_size, normalize=True)
+
+        model = SymmFMClass(args, image_shape, channels)
+        model.load_checkpoint(args.checkpoint)
+        model.fid_sample(args.batch_size)

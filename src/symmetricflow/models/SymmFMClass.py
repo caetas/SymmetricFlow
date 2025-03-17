@@ -921,6 +921,7 @@ class SymmFMClass(nn.Module):
 
         return (predicted_flow[:, :self.channels] - optimal_flow[:, :self.channels]).square().mean(), (predicted_flow[:, self.channels:] - optimal_flow[:, self.channels:]).square().mean()
     
+    @torch.no_grad()
     def encode(self, x):
         '''
         Encode the input image
@@ -931,7 +932,8 @@ class SymmFMClass(nn.Module):
             return self.model.module.encode(x)
         else:
             return self.model.encode(x)
-        
+
+    @torch.no_grad()    
     def decode(self, z):
         '''
         Decode the input image
@@ -1097,9 +1099,10 @@ class SymmFMClass(nn.Module):
         :param mask: mask
         :param beta: beta value
         '''
-        interval = 1.5/(self.n_classes-1)
+        interval = (self.beta/2)/(self.n_classes-1)
+        #interval = 1.5/(self.n_classes-1)
         label = (label/(self.n_classes-1))*2.0 - 1.0
-        mask = torch.ones(label.shape[0], 1, self.img_size, self.img_size, device=self.device)*label[:, None, None, None]
+        mask = (self.beta/2)*torch.ones(label.shape[0], 1, self.img_size, self.img_size, device=self.device)*label[:, None, None, None]
         mask = mask + interval*(torch.rand_like(mask) - 0.5)
 
         return mask
@@ -1110,10 +1113,12 @@ class SymmFMClass(nn.Module):
         :param mask: mask
         :param beta: beta value
         '''
+        mask = mask/(self.beta/2)
         mask = mask*0.5 + 0.5
         mask = mask.mean(dim=(1, 2, 3)) 
         mask *= (self.n_classes-1)
         label = mask.round()
+        label = label.clamp(0, self.n_classes-1)
 
         return label
 
@@ -1228,7 +1233,7 @@ class SymmFMClass(nn.Module):
             
             if (epoch+1) % self.snapshot == 0:
                 ema_to_save = accelerate.unwrap_model(self.ema)
-                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatchingClass', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_epoch{epoch+1}.pt"))
+                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatchingClass', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_beta{self.beta}_epoch{epoch+1}.pt"))
 
         accelerate.end_training()
 
@@ -1292,8 +1297,11 @@ class SymmFMClass(nn.Module):
         if not os.path.exists(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}"):
             os.makedirs(f"./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}")
         cnt = 0
+        labels = torch.arange(50000, device=self.device) % self.n_classes
         for i in tqdm(range(50000//batch_size), desc='FID Sampling', leave=True):
-            samps = self.sample(batch_size, train=False, fid=True).cpu().numpy()
+            mask = self.dequantize_class(labels[i*batch_size:(i+1)*batch_size])
+            mask = mask.to(self.device)
+            samps = self.sample(batch_size, mask, train=False, fid=True).cpu().numpy()
             samps = (samps*255).astype(np.uint8)
             samps = samps.transpose(0, 2, 3, 1)
             for samp in samps:
