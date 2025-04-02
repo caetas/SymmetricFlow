@@ -457,22 +457,17 @@ class SurgeSAMDataset(Dataset):
         '''
         self.images = glob(os.path.join(data_raw_dir, "SurgeSAM_processed", "*", "*", "*", "images", "*.jpg"))
         self.images.sort()
-        # shuffle with a fixed seed
-        np.random.seed(42)
-        np.random.shuffle(self.images)
-        self.masks = [img.replace("images", "machine_masks").replace(".jpg", ".png") for img in self.images]
-        # reset the seed
-        np.random.seed(None)
-
+        val_videos = ['s8k98gGeFf0.mp4', 'watch#v=xEps8nqblY0.mp4']
         if mode == 'train':
-            self.images = self.images[:int(len(self.images) * 0.8)]
-            self.masks = self.masks[:int(len(self.masks) * 0.8)]
+            self.images = [img for img in self.images if not any(video in img for video in val_videos)]
         elif mode == 'val':
-            self.images = self.images[int(len(self.images) * 0.8):]
-            self.masks = self.masks[int(len(self.masks) * 0.8):]
+            self.images = [img for img in self.images if any(video in img for video in val_videos)]
+        
+        self.masks = [img.replace("images", "machine_masks").replace(".jpg", ".png") for img in self.images]
         self.transform_fn = transform_fn
         self.mask_transform_fn = mask_transform_fn
         self.size = size
+        self.mode = mode
         self.palette = build_palette(4, 75)
 
     def __len__(self):
@@ -514,6 +509,11 @@ class SurgeSAMDataset(Dataset):
         image = self.transform_fn(image)
         mask = self.mask_to_color(mask)
         mask = self.mask_transform_fn(mask)
+        if self.mode == 'train':
+            # flip the image and mask horizontally with a 50% chance
+            if np.random.rand() > 0.5:
+                image = torch.flip(image, [-1])
+                mask = torch.flip(mask, [-1])
         return image, mask
 
     def mask_to_color(self, mask):
