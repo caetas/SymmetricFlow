@@ -14,6 +14,9 @@ if __name__ == '__main__':
         elif args.dataset == 'pneumoniamnist':
             image_shape, channels, dataloader = pneumoniamnist_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
             _, _, dataloader_val = pneumoniamnist_val_loader(16, normalize=True)
+        elif args.dataset == 'bloodmnist':
+            image_shape, channels, dataloader = mnist_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
+            _, _, dataloader_val = mnist_val_loader(16, normalize=True)
         else:
             image_shape, channels, dataloader = cifar10_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
             _, _, dataloader_val = cifar10_val_loader(16, normalize=True)
@@ -29,6 +32,8 @@ if __name__ == '__main__':
             image_shape, channels, dataloader = mnist_val_loader(16, normalize=True)
         elif args.dataset == 'pneumoniamnist':
             image_shape, channels, dataloader = pneumoniamnist_val_loader(16, normalize=True)
+        elif args.dataset == 'bloodmnist':
+            image_shape, channels, dataloader = mnist_val_loader(16, normalize=True)
         else:
             image_shape, channels, dataloader = cifar10_val_loader(16, normalize=True)
 
@@ -47,6 +52,8 @@ if __name__ == '__main__':
             image_shape, channels, dataloader = mnist_val_loader(args.batch_size, normalize=True)
         elif args.dataset == 'pneumoniamnist':
             image_shape, channels, dataloader = pneumoniamnist_val_loader(args.batch_size, normalize=True)
+        elif args.dataset == 'bloodmnist':
+            image_shape, channels, dataloader = mnist_val_loader(args.batch_size, normalize=True)
         else:
             image_shape, channels, dataloader = cifar10_val_loader(args.batch_size, normalize=True)
 

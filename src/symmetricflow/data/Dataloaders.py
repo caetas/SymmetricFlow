@@ -110,9 +110,9 @@ def bloodmnist_train_loader(batch_size, normalize = False, input_shape = None, n
                                     num_workers = num_workers)
         
         if input_shape is not None:
-            return training_loader, input_shape, 3
+            return input_shape, 3, training_loader
         else:
-            return training_loader, 32, 3
+            return 32, 3, training_loader
         
 def bloodmnist_val_loader(batch_size, normalize = False, input_shape = None):
 
@@ -141,9 +141,9 @@ def bloodmnist_val_loader(batch_size, normalize = False, input_shape = None):
                                         pin_memory=True)
             
             if input_shape is not None:
-                return validation_loader, input_shape, 3
+                return input_shape, 3, validation_loader
             else:
-                return validation_loader, 32, 3
+                return 32, 3, validation_loader
             
 def dermamnist_train_loader(batch_size, normalize = False, input_shape = None, num_workers = 0):
     
