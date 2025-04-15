@@ -12,6 +12,262 @@ from config import data_raw_dir
 import zipfile
 import os
 from glob import glob
+from medmnist import RetinaMNIST, BloodMNIST, PneumoniaMNIST, DermaMNIST
+
+
+def retinamnist_train_loader(batch_size, normalize = False, input_shape = None, num_workers = 0):
+        
+    if normalize:
+        transform = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+        ])
+
+    #3 available sizes for download: 28, 64, 128 and 224, choose the closest to input_shape
+    if input_shape is not None:
+        size = min([28, 64, 128, 224], key=lambda x: abs(x - input_shape))
+    else:
+        size = 28
+    training_data = RetinaMNIST(root=data_raw_dir, split='train', download=True, transform=transform, size = size)
+
+    training_loader = DataLoader(training_data, 
+                                batch_size=batch_size, 
+                                shuffle=True,
+                                pin_memory=True,
+                                num_workers = num_workers)
+    
+    if input_shape is not None:
+        return training_loader, input_shape, 3
+    else:
+        return training_loader, 32, 3
+        
+def retinamnist_val_loader(batch_size, normalize = False, input_shape = None):
+    
+    if normalize:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+        ])
+
+    #3 available sizes for download: 28, 64, 128 and 224, choose the closest to input_shape
+    if input_shape is not None:
+        size = min([28, 64, 128, 224], key=lambda x: abs(x - input_shape))
+    else:
+        size = 28
+
+    validation_data = RetinaMNIST(root=data_raw_dir, split='test', download=True, transform=transform, size = size)
+
+    validation_loader = DataLoader(validation_data,
+                                    batch_size=batch_size,
+                                    shuffle=True,
+                                    pin_memory=True)
+    
+    if input_shape is not None:
+        return validation_loader, input_shape, 3
+    else:
+        return validation_loader, 32, 3
+    
+def bloodmnist_train_loader(batch_size, normalize = False, input_shape = None, num_workers = 0):
+        
+        if normalize:
+            transform = transforms.Compose([
+                transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+                transforms.RandomHorizontalFlip(),
+                transforms.RandomVerticalFlip(),
+                transforms.ToTensor(),
+                transforms.Normalize((0.5,), (0.5,))
+            ])
+        else:
+            transform = transforms.Compose([
+                transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+                transforms.ToTensor(),
+            ])
+    
+        if input_shape is not None:
+            size = min([64, 128, 224], key=lambda x: abs(x - input_shape))
+            training_data = BloodMNIST(root=data_raw_dir, split='train', download=True, transform=transform, size = size)
+        else:
+            training_data = BloodMNIST(root=data_raw_dir, split='train', download=True, transform=transform)
+    
+        training_loader = DataLoader(training_data, 
+                                    batch_size=batch_size, 
+                                    shuffle=True,
+                                    pin_memory=True,
+                                    num_workers = num_workers)
+        
+        if input_shape is not None:
+            return training_loader, input_shape, 3
+        else:
+            return training_loader, 32, 3
+        
+def bloodmnist_val_loader(batch_size, normalize = False, input_shape = None):
+
+        
+            if normalize:
+                transform = transforms.Compose([
+                    transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.5,), (0.5,))
+                ])
+            else:
+                transform = transforms.Compose([
+                    transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+                    transforms.ToTensor(),
+                ])
+    
+            if input_shape is not None:
+                size = min([64, 128, 224], key=lambda x: abs(x - input_shape))
+                validation_data = BloodMNIST(root=data_raw_dir, split='test', download=True, transform=transform, size = size)
+            else:
+                validation_data = BloodMNIST(root=data_raw_dir, split='test', download=True, transform=transform)
+    
+            validation_loader = DataLoader(validation_data,
+                                        batch_size=batch_size,
+                                        shuffle=True,
+                                        pin_memory=True)
+            
+            if input_shape is not None:
+                return validation_loader, input_shape, 3
+            else:
+                return validation_loader, 32, 3
+            
+def dermamnist_train_loader(batch_size, normalize = False, input_shape = None, num_workers = 0):
+    
+    if normalize:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.RandomHorizontalFlip(),
+            transforms.RandomVerticalFlip(),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+        ])
+
+    if input_shape is not None:
+        size = min([64, 128, 224], key=lambda x: abs(x - input_shape))
+        training_data = DermaMNIST(root=data_raw_dir, split='train', download=True, transform=transform, size = size)
+    else:
+        training_data = DermaMNIST(root=data_raw_dir, split='train', download=True, transform=transform)
+
+    training_loader = DataLoader(training_data, 
+                                batch_size=batch_size, 
+                                shuffle=True,
+                                pin_memory=True,
+                                num_workers = num_workers)
+    
+    if input_shape is not None:
+        return training_loader, input_shape, 3
+    else:
+        return training_loader, 32, 3
+    
+def dermamnist_val_loader(batch_size, normalize = False, input_shape = None):
+    
+    if normalize:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+        ])
+
+    if input_shape is not None:
+        size = min([64, 128, 224], key=lambda x: abs(x - input_shape))
+        validation_data = DermaMNIST(root=data_raw_dir, split='test', download=True, transform=transform, size = size)
+    else:
+        validation_data = DermaMNIST(root=data_raw_dir, split='test', download=True, transform=transform)
+
+    validation_loader = DataLoader(validation_data,
+                                batch_size=batch_size,
+                                shuffle=True,
+                                pin_memory=True)
+    
+    if input_shape is not None:
+        return validation_loader, input_shape, 3
+    else:
+        return validation_loader, 32, 3
+    
+def pneumoniamnist_train_loader(batch_size, normalize = False, input_shape = None, num_workers = 0):
+                            
+    if normalize:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+        ])
+
+    if input_shape is not None:
+        size = min([64, 128, 224], key=lambda x: abs(x - input_shape))
+        training_data = PneumoniaMNIST(root=data_raw_dir, split='train', download=True, transform=transform, size = size)
+    else:
+        training_data = PneumoniaMNIST(root=data_raw_dir, split='train', download=True, transform=transform)
+
+    training_loader = DataLoader(training_data, 
+                                batch_size=batch_size, 
+                                shuffle=True,
+                                pin_memory=True,
+                                num_workers = num_workers)
+
+    if input_shape is not None:
+        return input_shape, 1, training_loader
+    else:
+        return 32, 1, training_loader 
+
+def pneumoniamnist_val_loader(batch_size, normalize = False, input_shape = None):
+                                    
+    if normalize:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+            transforms.Normalize((0.5,), (0.5,))
+        ])
+    else:
+        transform = transforms.Compose([
+            transforms.Resize(input_shape) if input_shape is not None else transforms.Resize(32),
+            transforms.ToTensor(),
+        ])
+    
+    if input_shape is not None:
+        size = min([64, 128, 224], key=lambda x: abs(x - input_shape))
+        validation_data = PneumoniaMNIST(root=data_raw_dir, split='test', download=True, transform=transform, size = size)
+    else:
+        validation_data = PneumoniaMNIST(root=data_raw_dir, split='test', download=True, transform=transform)
+
+    validation_loader = DataLoader(validation_data,
+                                batch_size=batch_size,
+                                shuffle=True,
+                                pin_memory=True)
+    
+    if input_shape is not None:
+        return input_shape, 1, validation_loader
+    else:
+        return 32, 1, validation_loader
 
 
 class ADE20KDataset(Dataset):

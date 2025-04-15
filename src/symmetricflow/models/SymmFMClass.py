@@ -1181,6 +1181,10 @@ class SymmFMClass(nn.Module):
             train_loss_mask = 0.0
             for x, label in tqdm(train_loader, desc='Batches', leave=False, disable=not verbose):
                 x = x.to(self.device)
+
+                if label.dim() > 1:
+                    label = label.squeeze(1)
+
                 mask = self.dequantize_class(label)
                 mask = mask.to(self.device)
 
@@ -1219,6 +1223,8 @@ class SymmFMClass(nn.Module):
                 # one batch from the validation loader
                 x, label = next(iter(val_loader))
                 x = x.to(self.device)
+                if label.dim() > 1:
+                    label = label.squeeze(1)
                 mask = self.dequantize_class(label)
                 mask = mask.to(self.device)
                 if self.vae is not None:

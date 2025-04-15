@@ -28,3 +28,4 @@ scikit-learn
 torchmetrics
 lpips
 seaborn
+medmnist
