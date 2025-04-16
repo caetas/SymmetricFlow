@@ -23,7 +23,7 @@ from collections import OrderedDict
 import copy
 from abc import abstractmethod
 import cv2
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, roc_auc_score
 
 # PyTorch 1.7 has SiLU, but we support PyTorch 1.5.
 class SiLU(nn.Module):
@@ -1121,6 +1121,21 @@ class SymmFMClass(nn.Module):
         label = label.clamp(0, self.n_classes-1)
 
         return label
+    
+    def distance_to_classes(self, mask):
+        '''
+        Compute the distance to each individual class
+        :param mask: mask
+        :param beta: beta value
+        '''
+        mask = mask/(self.beta/2)
+        mask = mask*0.5 + 0.5
+        mask = mask.mean(dim=(1, 2, 3))
+        mask *= (self.n_classes-1)
+        distances = torch.zeros(mask.shape[0], self.n_classes, device=self.device)
+        for i in range(self.n_classes):
+            distances[:, i] = torch.abs(mask - i)
+        return distances   
 
     
     def train_model(self, train_loader, val_loader, verbose=True):
@@ -1260,6 +1275,7 @@ class SymmFMClass(nn.Module):
         self.model.eval()
         gt = []
         pred = []
+        distances = []
         for x, label in tqdm(dataloader, desc='Evaluating', leave=True):
             x = x.to(self.device)
             gt.append(label.numpy())
@@ -1271,15 +1287,19 @@ class SymmFMClass(nn.Module):
                     x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
 
             predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
+            distances.append(self.distance_to_classes(predicted_masks).cpu().numpy())
             pred.append(self.quantize_class(predicted_masks).cpu().long().numpy())
 
         gt = np.concatenate(gt)
         pred = np.concatenate(pred)
-
+        distances = np.concatenate(distances)
+        # get roc_auc score for each class then average them
+        auc = [roc_auc_score(gt != i, distances[:,i]) for i in range(self.n_classes)]
 
         acc = accuracy_score(gt, pred)
 
         print(f"Accuracy: {100*acc:.2f}%")
+        print(f"AUC: {100*np.mean(auc):.2f}%")
 
 
     @torch.no_grad()

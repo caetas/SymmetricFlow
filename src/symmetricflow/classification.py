@@ -1,4 +1,4 @@
-from data.Dataloaders import mnist_train_loader, mnist_val_loader, cifar10_train_loader, cifar10_val_loader, pneumoniamnist_train_loader, pneumoniamnist_val_loader, bloodmnist_val_loader, bloodmnist_train_loader
+from data.Dataloaders import *
 from utils.util import parse_args_SymmetricFlowMatchingClass
 from models.SymmFMClass import SymmFMClass
 import torch
@@ -17,6 +17,12 @@ if __name__ == '__main__':
         elif args.dataset == 'bloodmnist':
             image_shape, channels, dataloader = bloodmnist_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
             _, _, dataloader_val = bloodmnist_val_loader(16, normalize=True)
+        elif args.dataset == 'retinamnist':
+            image_shape, channels, dataloader = retinamnist_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
+            _, _, dataloader_val = retinamnist_val_loader(16, normalize=True)
+        elif args.dataset == 'dermamnist':
+            image_shape, channels, dataloader = dermamnist_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
+            _, _, dataloader_val = dermamnist_val_loader(16, normalize=True)
         else:
             image_shape, channels, dataloader = cifar10_train_loader(args.batch_size, normalize=True, num_workers=args.num_workers)
             _, _, dataloader_val = cifar10_val_loader(16, normalize=True)
@@ -34,6 +40,10 @@ if __name__ == '__main__':
             image_shape, channels, dataloader = pneumoniamnist_val_loader(16, normalize=True)
         elif args.dataset == 'bloodmnist':
             image_shape, channels, dataloader = bloodmnist_val_loader(16, normalize=True)
+        elif args.dataset == 'retinamnist':
+            image_shape, channels, dataloader = retinamnist_val_loader(16, normalize=True)
+        elif args.dataset == 'dermamnist':
+            image_shape, channels, dataloader = dermamnist_val_loader(16, normalize=True)
         else:
             image_shape, channels, dataloader = cifar10_val_loader(16, normalize=True)
 
@@ -54,6 +64,10 @@ if __name__ == '__main__':
             image_shape, channels, dataloader = pneumoniamnist_val_loader(args.batch_size, normalize=True)
         elif args.dataset == 'bloodmnist':
             image_shape, channels, dataloader = bloodmnist_val_loader(args.batch_size, normalize=True)
+        elif args.dataset == 'retinamnist':
+            image_shape, channels, dataloader = retinamnist_val_loader(args.batch_size, normalize=True)
+        elif args.dataset == 'dermamnist':
+            image_shape, channels, dataloader = dermamnist_val_loader(args.batch_size, normalize=True)
         else:
             image_shape, channels, dataloader = cifar10_val_loader(args.batch_size, normalize=True)
 
