@@ -1115,12 +1115,19 @@ class SymmFMClass(nn.Module):
         '''
         mask = mask/(self.beta/2)
         mask = mask*0.5 + 0.5
-        mask = mask.mean(dim=(1, 2, 3)) 
-        mask *= (self.n_classes-1)
-        label = mask.round()
-        label = label.clamp(0, self.n_classes-1)
 
-        return label
+        # label each image as the mean class in the mask
+        mean_prediction = mask.mean(dim=(1, 2, 3)) 
+        mean_prediction *= (self.n_classes-1)
+        mean_prediction = mean_prediction.round()
+        mean_prediction = mean_prediction.clamp(0, self.n_classes-1)
+
+        # label each image as the most frequent class in the mask
+        mode_prediction = mask*(self.n_classes-1)
+        mode_prediction = mode_prediction.round().clamp(0, self.n_classes-1)
+        mode_prediction = mode_prediction.flatten(start_dim=1).mode(dim=1)[0]
+
+        return mean_prediction
     
     def distance_to_classes(self, mask):
         '''
