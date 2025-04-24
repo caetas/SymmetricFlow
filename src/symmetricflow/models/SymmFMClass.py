@@ -24,6 +24,7 @@ import copy
 from abc import abstractmethod
 import cv2
 from sklearn.metrics import accuracy_score, roc_auc_score
+from utils.masks import build_palette
 
 # PyTorch 1.7 has SiLU, but we support PyTorch 1.5.
 class SiLU(nn.Module):
@@ -888,6 +889,7 @@ class SymmFMClass(nn.Module):
         self.beta = args.beta
         self.image_weight = args.image_weight
         self.n_classes = args.n_classes
+        self.palette = build_palette(4, 75)
 
         if args.train:
             self.ema = copy.deepcopy(self.model)
