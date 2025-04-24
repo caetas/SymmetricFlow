@@ -88,6 +88,7 @@ def parse_args_SymmetricFlowMatchingClass():
     argparser.add_argument('--image_weight', type=float, default=.9, help='Weight for the image loss')
     argparser.add_argument('--n_classes', type=int, default=10, help='Number of classes')
     argparser.add_argument('--classification', action='store_true', default=False, help='evaluate model')
+    argparser.add_argument('--rgb_mask', action='store_true', default=False, help='use rgb mask')
     args = argparser.parse_args()
     args.channel_mult = tuple(args.channel_mult)
     args.attention_resolutions = tuple(args.attention_resolutions)

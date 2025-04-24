@@ -34,6 +34,8 @@ if __name__ == '__main__':
         labels = torch.arange(0, args.num_samples).to(model.device) % args.n_classes
         mask = model.dequantize_class(labels)
         mask = mask.to(model.device)
+        if model.vae is not None:
+            mask = model.encode(mask).latent_dist.sample().mul_(0.18215)
         model.sample(args.num_samples, mask=mask, train=False)
 
     elif args.classification:

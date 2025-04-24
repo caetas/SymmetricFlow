@@ -840,17 +840,24 @@ class SymmFMClass(nn.Module):
         self.vae =  AutoencoderKL.from_pretrained(f"stabilityai/sd-vae-ft-mse").to(self.device) if args.latent else None
         self.channels = in_channels
         self.img_size = img_size
+        self.rgb_mask = args.rgb_mask
 
         # If using VAE, change the number of channels and image size accordingly
         if self.vae is not None:
             self.channels = 4
             self.img_size = self.img_size // 8
+            self.model_channels = self.channels * 2
+        else:
+            if self.rgb_mask:
+                self.model_channels = self.channels + 3
+            else:
+                self.model_channels = self.channels + 1
 
         self.model = UNetModel(
             image_size=self.img_size,
-            in_channels=self.channels+1,
+            in_channels=self.model_channels,
             model_channels=args.model_channels,
-            out_channels=self.channels+1,
+            out_channels=self.model_channels,
             num_res_blocks=args.num_res_blocks,
             attention_resolutions=args.attention_resolutions,
             dropout=args.dropout,
@@ -881,6 +888,7 @@ class SymmFMClass(nn.Module):
         self.beta = args.beta
         self.image_weight = args.image_weight
         self.n_classes = args.n_classes
+
         if args.train:
             self.ema = copy.deepcopy(self.model)
             self.ema_rate = args.ema_rate
@@ -929,9 +937,9 @@ class SymmFMClass(nn.Module):
         '''
         # check if it is a distributted model or not
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-            return self.model.module.encode(x)
+            return self.vae.module.encode(x)
         else:
-            return self.model.encode(x)
+            return self.vae.encode(x)
 
     @torch.no_grad()    
     def decode(self, z):
@@ -941,9 +949,9 @@ class SymmFMClass(nn.Module):
         '''
         # check if it is a distributted model or not
         if isinstance(self.model, torch.nn.parallel.DistributedDataParallel):
-            return self.model.module.decode(z)
+            return self.vae.module.decode(z)
         else:
-            return self.model.decode(z)
+            return self.vae.decode(z)
     
     @torch.no_grad()
     def sample(self, n_samples, mask, train=True, accelerate=None, fid=False):
@@ -987,12 +995,8 @@ class SymmFMClass(nn.Module):
         samples = samples[:, :self.channels]
         
         if self.vae is not None:
-            if train:
-                samples = self.vae.decode(samples / 0.18215).sample
-                mask = self.vae.decode(mask / 0.18215).sample
-            else:
-                samples = self.vae.decode(samples / 0.18215).sample
-                mask = self.vae.decode(mask / 0.18215).sample
+            samples = self.decode(samples / 0.18215).sample
+            mask = self.decode(mask / 0.18215).sample
 
         samples = samples*0.5 + 0.5
         samples = samples.clamp(0, 1)
@@ -1029,7 +1033,13 @@ class SymmFMClass(nn.Module):
         :param train: if True, sample during training
         :param accelerate: Accelerator object
         '''
-        x_0 = torch.randn(n_samples, 1, self.img_size, self.img_size, device=self.device)
+        if self.vae is not None:
+            x_0 = torch.randn(n_samples, self.channels, self.img_size, self.img_size, device=self.device)
+        else:
+            if self.rgb_mask:
+                x_0 = torch.randn(n_samples, 3, self.img_size, self.img_size, device=self.device)
+            else:
+                x_0 = torch.randn(n_samples, 1, self.img_size, self.img_size, device=self.device)
         x_0 = torch.cat([x, x_0], dim=1)
 
         if train:
@@ -1061,13 +1071,8 @@ class SymmFMClass(nn.Module):
         samples = samples[:, self.channels:]
         
         if self.vae is not None:
-            if train:
-                samples = self.vae.decode(samples / 0.18215).sample
-                x = self.vae.decode(x / 0.18215).sample
-            else:
-                samples = self.vae.decode(samples / 0.18215).sample
-                x = self.vae.decode(x / 0.18215).sample
-
+            samples = self.decode(samples / 0.18215).sample
+            x = self.decode(x / 0.18215).sample
         if eval:
             return samples
 
@@ -1099,11 +1104,28 @@ class SymmFMClass(nn.Module):
         :param mask: mask
         :param beta: beta value
         '''
-        interval = (self.beta/2)/(self.n_classes-1)
-        #interval = 1.5/(self.n_classes-1)
-        label = (label/(self.n_classes-1))*2.0 - 1.0
-        mask = (self.beta/2)*torch.ones(label.shape[0], 1, self.img_size, self.img_size, device=self.device)*label[:, None, None, None]
-        mask = mask + interval*(torch.rand_like(mask) - 0.5)
+        if self.rgb_mask:
+            # we should spread the indices of the palette to push colors apart
+            color_translation = torch.linspace(0, len(self.palette)-1, self.n_classes, device=self.device).long()
+            #mask takes the color of the palette corresponding to the label
+            if self.vae is not None:
+                mask = torch.zeros(label.shape[0], 3, self.img_size*8, self.img_size*8, device=self.device).long()
+            else:
+                mask = torch.zeros(label.shape[0], 3, self.img_size, self.img_size, device=self.device).long()
+            for i in range(self.n_classes):
+                mask[label == i] = torch.tensor(self.palette[color_translation[i]], device=self.device).view(1, 3, 1, 1)
+
+            # normalize to -1, 1
+            mask = mask.float()/255.0
+            mask = mask*2.0 - 1.0
+            # add perturbation to the mask
+            mask = mask + (self.beta)*(torch.rand_like(mask) - 0.5)/127.5
+        else:
+            interval = (self.beta/2)/(self.n_classes-1)
+            #interval = 1.5/(self.n_classes-1)
+            label = (label/(self.n_classes-1))*2.0 - 1.0
+            mask = (self.beta/2)*torch.ones(label.shape[0], 1, self.img_size, self.img_size, device=self.device)*label[:, None, None, None]
+            mask = mask + interval*(torch.rand_like(mask) - 0.5)
 
         return mask
 
@@ -1113,21 +1135,39 @@ class SymmFMClass(nn.Module):
         :param mask: mask
         :param beta: beta value
         '''
-        mask = mask/(self.beta/2)
-        mask = mask*0.5 + 0.5
+        if self.rgb_mask:
+            # we should spread the indices of the palette to push colors apart
+            color_translation = torch.linspace(0, len(self.palette)-1, self.n_classes, device=self.device).long()
+            #mask takes the color of the palette corresponding to the label
+            distances = torch.zeros(mask.shape[0], self.n_classes, device=self.device)
+            for i in range(self.n_classes):
+                ref_color = torch.tensor(self.palette[color_translation[i]], device=self.device).view(1, 3, 1, 1)
+                #normalize to -1, 1
+                ref_color = ref_color.float()/255.0
+                ref_color = ref_color*2.0 - 1.0
+                distances[:, i] = torch.norm(mask - ref_color, dim=1).mean(dim=(1, 2))
+            
+            #predict the class with the minimum distance
+            prediction = distances.argmin(dim=1)
+            return prediction
 
-        # label each image as the mean class in the mask
-        mean_prediction = mask.mean(dim=(1, 2, 3)) 
-        mean_prediction *= (self.n_classes-1)
-        mean_prediction = mean_prediction.round()
-        mean_prediction = mean_prediction.clamp(0, self.n_classes-1)
 
-        # label each image as the most frequent class in the mask
-        mode_prediction = mask*(self.n_classes-1)
-        mode_prediction = mode_prediction.round().clamp(0, self.n_classes-1)
-        mode_prediction = mode_prediction.flatten(start_dim=1).mode(dim=1)[0]
+        else:
+            mask = mask/(self.beta/2)
+            mask = mask*0.5 + 0.5
 
-        return mean_prediction
+            # label each image as the mean class in the mask
+            mean_prediction = mask.mean(dim=(1, 2, 3)) 
+            mean_prediction *= (self.n_classes-1)
+            mean_prediction = mean_prediction.round()
+            mean_prediction = mean_prediction.clamp(0, self.n_classes-1)
+
+            # label each image as the most frequent class in the mask
+            mode_prediction = mask*(self.n_classes-1)
+            mode_prediction = mode_prediction.round().clamp(0, self.n_classes-1)
+            mode_prediction = mode_prediction.flatten(start_dim=1).mode(dim=1)[0]
+
+            return mean_prediction
     
     def distance_to_classes(self, mask):
         '''
@@ -1177,7 +1217,10 @@ class SymmFMClass(nn.Module):
                         "latent": self.args.latent,
                         "decay": self.args.decay,
                         "size": self.args.size, 
-                        "n_classes": self.args.n_classes, 
+                        "n_classes": self.args.n_classes,
+                        "beta": self.args.beta,
+                        "image_weight": self.args.image_weight,
+                        "rgb_mask": self.args.rgb_mask, 
                 },
                 init_kwargs={"wandb":{"name": f"SymmetricalFlowMatchingClass_{self.args.dataset}"}})
 
@@ -1217,9 +1260,10 @@ class SymmFMClass(nn.Module):
                             # if x has one channel, make it 3 channels
                             if x.shape[1] == 1:
                                 x = torch.cat((x, x, x), dim=1)
+                            if mask.shape[1] == 1:
                                 mask = torch.cat((mask, mask, mask), dim=1)
-                            x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                            mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
+                            x = self.encode(x).latent_dist.sample().mul_(0.18215)
+                            mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
 
                     optimizer.zero_grad()
                     loss_image, loss_mask = self.symmetrical_flow_matching_loss(x, mask)
@@ -1253,15 +1297,16 @@ class SymmFMClass(nn.Module):
                     with torch.no_grad():
                         if x.shape[1] == 1:
                             x = torch.cat((x, x, x), dim=1)
+                        if mask.shape[1] == 1:
                             mask = torch.cat((mask, mask, mask), dim=1)
-                        x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
-                        mask = self.vae.encode(mask).latent_dist.mode().mul_(0.18215)
+                        x = self.encode(x).latent_dist.sample().mul_(0.18215)
+                        mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
                 self.sample(x.shape[0], mask, accelerate=accelerate)
                 #self.segment(x.shape[0], x, accelerate=accelerate)
             
             if (epoch+1) % self.snapshot == 0:
                 ema_to_save = accelerate.unwrap_model(self.ema)
-                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatchingClass', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}_beta{self.beta}_epoch{epoch+1}.pt"))
+                accelerate.save(ema_to_save.state_dict(), os.path.join(models_dir, 'SymmetricalFlowMatchingClass', f"{'LatFM' if self.vae is not None else 'FM'}_{self.dataset}{'_rgb' if self.rgb_mask else ''}_beta{self.beta}_epoch{epoch+1}.pt"))
 
         accelerate.end_training()
 
@@ -1291,7 +1336,7 @@ class SymmFMClass(nn.Module):
                 with torch.no_grad():
                     if x.shape[1] == 1:
                         x = torch.cat((x, x, x), dim=1)
-                    x = self.vae.encode(x).latent_dist.sample().mul_(0.18215)
+                    x = self.encode(x).latent_dist.sample().mul_(0.18215)
 
             predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
             distances.append(self.distance_to_classes(predicted_masks).cpu().numpy())
