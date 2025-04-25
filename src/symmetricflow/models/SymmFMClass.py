@@ -1177,14 +1177,29 @@ class SymmFMClass(nn.Module):
         :param mask: mask
         :param beta: beta value
         '''
-        mask = mask/(self.beta/2)
-        mask = mask*0.5 + 0.5
-        mask = mask.mean(dim=(1, 2, 3))
-        mask *= (self.n_classes-1)
-        distances = torch.zeros(mask.shape[0], self.n_classes, device=self.device)
-        for i in range(self.n_classes):
-            distances[:, i] = torch.abs(mask - i)
-        return distances   
+        if self.rgb_mask:
+            # we should spread the indices of the palette to push colors apart
+            color_translation = torch.linspace(0, len(self.palette)-1, self.n_classes, device=self.device).long()
+            #mask takes the color of the palette corresponding to the label
+            distances = torch.zeros(mask.shape[0], self.n_classes, device=self.device)
+            for i in range(self.n_classes):
+                ref_color = torch.tensor(self.palette[color_translation[i]], device=self.device).view(1, 3, 1, 1)
+                #normalize to -1, 1
+                ref_color = ref_color.float()/255.0
+                ref_color = ref_color*2.0 - 1.0
+                dist_plot = torch.norm(mask - ref_color, dim=1)
+                distances[:, i] = torch.norm(mask - ref_color, dim=1).mean(dim=(1, 2))
+            return distances
+        
+        else:
+            mask = mask/(self.beta/2)
+            mask = mask*0.5 + 0.5
+            mask = mask.mean(dim=(1, 2, 3))
+            mask *= (self.n_classes-1)
+            distances = torch.zeros(mask.shape[0], self.n_classes, device=self.device)
+            for i in range(self.n_classes):
+                distances[:, i] = torch.abs(mask - i)
+            return distances      
 
     
     def train_model(self, train_loader, val_loader, verbose=True):
@@ -1381,6 +1396,11 @@ class SymmFMClass(nn.Module):
         for i in tqdm(range(50000//batch_size), desc='FID Sampling', leave=True):
             mask = self.dequantize_class(labels[i*batch_size:(i+1)*batch_size])
             mask = mask.to(self.device)
+            if self.vae is not None:
+                with torch.no_grad():
+                    if mask.shape[1] == 1:
+                        mask = torch.cat((mask, mask, mask), dim=1)
+                    mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
             samps = self.sample(batch_size, mask, train=False, fid=True).cpu().numpy()
             samps = (samps*255).astype(np.uint8)
             samps = samps.transpose(0, 2, 3, 1)
