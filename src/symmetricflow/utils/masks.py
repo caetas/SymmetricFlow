@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import cv2
 
 def build_palette(k=6,s=None):
     if s==None:
@@ -46,7 +47,8 @@ def mask_to_class(masks, dataset):
         color_list = build_palette(6, 50)  # Assuming build_palette returns a list of RGB colors
         color_list = color_list[:171] + color_list[-1:]  # Trim specific indices
         color_list = torch.tensor(color_list, dtype=torch.float32, device=masks.device)  # Convert to tenso
-
+    
+    '''
     # Reshape color list for broadcasting: (Classes, 3, 1, 1)
     color_list = color_list.view(-1, 3, 1, 1)
 
@@ -57,6 +59,15 @@ def mask_to_class(masks, dataset):
     class_labels = torch.argmin(distances, dim=1)  # (B, H, W)
 
     return class_labels  # Shape: (B, H, W), dtype=torch.long
+    '''
+
+    distances = torch.zeros(masks.shape[0], len(color_list), masks.shape[2], masks.shape[3], device=masks.device)
+    for i in range(len(color_list)):
+        ref_color = color_list[i].view(1, 3, 1, 1).float()  # Shape: (1, 3, 1, 1)
+        distances[:, i] = torch.norm(masks - ref_color, dim=1, p=2)  # Shape: (B, H, W)
+
+    class_labels = torch.argmin(distances, dim=1)  # Shape: (B, H, W)
+    return class_labels.long()  # Convert to long type for class labels
 
 
 #def mask_to_class(masks, dataset):
