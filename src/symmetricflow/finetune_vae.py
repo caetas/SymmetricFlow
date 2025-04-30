@@ -5,6 +5,8 @@ from tqdm import tqdm
 from matplotlib import pyplot as plt
 import argparse
 import wandb
+from config import models_dir
+import os
 
 def parse_args():
     argparser = argparse.ArgumentParser()
@@ -12,7 +14,7 @@ def parse_args():
     argparser.add_argument('--n_epochs', type=int, default=5, help='number of epochs')
     argparser.add_argument('--lr', type=float, default=1e-5, help='learning rate')
     argparser.add_argument('--num_workers', type=int, default=0, help='number of workers for dataloader')
-    argparser.add_argument('--n_steps', type=int, default=10000, help='number of steps for training')
+    argparser.add_argument('--n_steps', type=int, default=2000, help='number of steps for training')
     return argparser.parse_args()
 
 @torch.no_grad()
@@ -48,6 +50,7 @@ if __name__ == '__main__':
 
     # Load pretrained VAE
     vae = AutoencoderKL.from_pretrained("stabilityai/sd-vae-ft-mse").to(device)
+    #vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, "vae_decoder_epoch_step_0.pth")))
 
     # Freeze encoder
     for param in vae.encoder.parameters():
@@ -101,7 +104,7 @@ if __name__ == '__main__':
 
             epoch_loss += loss.item()* masks.size(0)
             
-            if cnt % 1000 == 0:
+            if cnt % 500 == 0:
                 # Log validation loss
                 val_loss = validation_loss(vae, dataloader_val, criterion, device)
                 wandb.log({"validation_loss": val_loss})
@@ -122,8 +125,18 @@ if __name__ == '__main__':
                 plt.axis('off')
                 wandb.log({"reconstructed_mask": fig})
                 plt.close(fig)
+                #
+                # Save model checkpoint
+                if not os.path.exists(models_dir):
+                    os.makedirs(models_dir)
+                torch.save(vae.decoder.state_dict(), os.path.join(models_dir, f"vae_decoder_step_{cnt}.pt"))
 
             cnt += 1
+
+            if cnt-1 == args.n_steps:
+                break
+        if cnt-1 == args.n_steps:
+            break
 
         avg_loss = epoch_loss / len(dataloader.dataset)
         wandb.log({"epoch": epoch, "loss": avg_loss})
