@@ -1230,7 +1230,7 @@ class SymmFM(nn.Module):
         :param dataloader: data loader
         '''
         self.model.eval()
-        #self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_4400_coco_384_mse.pt'), weights_only=False))
+        self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_5000_coco_384_mse.pt'), weights_only=False))
         self.vae.eval()
         gt = []
         pred = []
