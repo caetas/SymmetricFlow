@@ -407,13 +407,27 @@ class CocoStuffDataset(Dataset):
         mask = np.array(mask)
         mask = mask.squeeze()
         colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+        remove = [11, 25, 28, 29, 44, 65, 67, 68, 70, 82, 90]
+        #change this to get the original mask colors
         for unique in np.unique(mask):
+            print(unique)
             if unique == 255:
                 unique = len(self.palette) - 1
                 colored_mask[mask == 255] = self.palette[unique]
             else:
                 colored_mask[mask == unique] = self.palette[unique]
         return Image.fromarray(colored_mask)
+        '''
+        color_translation = torch.linspace(0, len(self.palette)-1, 172).long()
+        for unique in np.unique(mask):
+            print(unique)
+            if unique == 255:
+                unique = 171
+                colored_mask[mask == 255] = self.palette[color_translation[unique]]
+            else:
+                colored_mask[mask == unique] = self.palette[color_translation[unique]]
+        return Image.fromarray(colored_mask)
+        '''
     
 
 def cocostuff_dataloader(batch_size, num_workers, mode='train', input_shape=None):
