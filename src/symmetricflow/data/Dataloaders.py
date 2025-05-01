@@ -410,7 +410,6 @@ class CocoStuffDataset(Dataset):
         remove = [11, 25, 28, 29, 44, 65, 67, 68, 70, 82, 90]
         #change this to get the original mask colors
         for unique in np.unique(mask):
-            print(unique)
             if unique == 255:
                 unique = len(self.palette) - 1
                 colored_mask[mask == 255] = self.palette[unique]
