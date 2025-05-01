@@ -1018,7 +1018,7 @@ class SymmFM(nn.Module):
         plt.close(fig)
 
     @torch.no_grad()
-    def segment(self, n_samples, x, train=True, accelerate=None, eval=False):
+    def segment(self, n_samples, x, train=True, accelerate=None, eval=False, fine_tune=False):
         '''
         Segment images
         :param n_samples: number of samples
@@ -1056,6 +1056,9 @@ class SymmFM(nn.Module):
             samples = x_0
 
         samples = samples[:, self.channels:]
+
+        if fine_tune:
+            return samples
         
         if self.vae is not None:
             samples = self.decode(samples / 0.18215).sample
