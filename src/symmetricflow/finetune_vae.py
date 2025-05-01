@@ -8,6 +8,7 @@ import wandb
 from config import models_dir
 import os
 from models.SymmFM import SymmFM
+from lpips import LPIPS
 
 def parse_args():
     argparser = argparse.ArgumentParser()
@@ -47,6 +48,7 @@ def parse_args():
     argparser.add_argument('--beta', type=float, default=10, help='Dequantization factor for the mask')
     argparser.add_argument('--image_weight', type=float, default=.9, help='Weight for the image loss')
     argparser.add_argument('--train', action='store_true', default=False, help='train model')
+    argparser.add_argument('--lpips', action='store_true', default=False, help='use lpips loss')
     return argparser.parse_args()
 
 @torch.no_grad()
@@ -66,7 +68,7 @@ def validation_loss(vae, dataloader_val, criterion, device, pred=False, model=No
             recon = vae.decode(latents).sample
 
             # Compute loss against ground-truth masks
-            loss = criterion(recon, masks)
+            loss = criterion(recon, masks).mean()
 
             if pred:
                 # If using prediction step, compute the prediction loss
@@ -75,7 +77,7 @@ def validation_loss(vae, dataloader_val, criterion, device, pred=False, model=No
                     images = vae.encode(images).latent_dist.sample().mul_(0.18215)
                     pred_masks = model.segment(images.shape[0], images, train=False, eval=True, fine_tune=True)
                     pred_masks = vae.decode(pred_masks/0.18215).sample
-                    loss += criterion(pred_masks, masks)
+                    loss += criterion(pred_masks, masks).mean()
 
 
             val_loss += loss.item()* masks.size(0)
@@ -116,7 +118,10 @@ if __name__ == '__main__':
 
     # --------- Optimizer and Loss ---------
     optimizer = torch.optim.Adam(vae.decoder.parameters(), lr=args.lr)
-    criterion = torch.nn.MSELoss()
+    if args.lpips:
+        criterion = LPIPS(net='vgg').to(device)
+    else:
+        criterion = torch.nn.MSELoss(reduction='mean').to(device)
 
     # --------- Training Loop ---------
     num_epochs = args.n_epochs
@@ -137,6 +142,8 @@ if __name__ == '__main__':
                     "epochs": num_epochs,
                     "batch_size": args.batch_size,
                     "steps": args.n_steps,
+                    "pred": args.pred,
+                    "lpips": args.lpips,
                 },
                 name=f"VAE-Finetuning-{args.dataset}-{args.size}")
     cnt = 0
@@ -145,17 +152,17 @@ if __name__ == '__main__':
         for images,masks in tqdm(dataloader, desc="Training Batches", leave=False):
             masks = masks.to(device)
             # perturb input with uniform noise
-            masks = masks + 10*(torch.randn_like(masks) * 0.5)/127.5
+            masks = masks + 10*(torch.randn_like(masks) - 0.5)/127.5
 
             # Obtain latents from frozen encoder
             with torch.no_grad():
-                latents = vae.encode(masks).latent_dist.sample()
+                latents = vae.encode(masks).latent_dist.mode()
 
             # Decode to reconstructed masks
             recon = vae.decode(latents).sample
 
             # Compute loss against ground-truth masks
-            loss = criterion(recon, masks)
+            loss = criterion(recon, masks).mean()
 
             if args.pred:
                 # If using prediction step, compute the prediction loss
@@ -165,7 +172,7 @@ if __name__ == '__main__':
                         images = vae.encode(images).latent_dist.sample().mul_(0.18215)
                         pred_masks = model.segment(images.shape[0], images, train=False, eval=True, fine_tune=True)
                     pred_masks = vae.decode(pred_masks/0.18215).sample
-                    loss = 0.2*loss + 0.8*criterion(pred_masks, masks)
+                    loss = 0.2*loss + 0.8*criterion(pred_masks, masks).mean()
 
             # Backpropagate only through decoder
             optimizer.zero_grad()
@@ -210,7 +217,7 @@ if __name__ == '__main__':
                 # Save model checkpoint
                 if not os.path.exists(models_dir):
                     os.makedirs(models_dir)
-                torch.save(vae.decoder.state_dict(), os.path.join(models_dir, f"vae_decoder_step_{cnt}_{args.dataset}_{args.size}.pt"))
+                torch.save(vae.decoder.state_dict(), os.path.join(models_dir, f"vae_decoder_step_{cnt}_{args.dataset}_{args.size}_{'lpips' if args.lpips else 'mse'}{'_pred' if args.pred else ''}.pt"))
 
             cnt += 1
 
