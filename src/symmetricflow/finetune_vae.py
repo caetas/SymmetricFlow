@@ -1,6 +1,6 @@
 from diffusers import AutoencoderKL
 import torch
-from data.Dataloaders import celeb_hq_masked_dataloader
+from data.Dataloaders import celeb_hq_masked_dataloader, cocostuff_dataloader
 from tqdm import tqdm
 from matplotlib import pyplot as plt
 import argparse
@@ -11,6 +11,8 @@ import os
 def parse_args():
     argparser = argparse.ArgumentParser()
     argparser.add_argument('--batch_size', type=int, default=2, help='batch size')
+    argparser.add_argument('--dataset', type=str, default='celeba', help='dataset name', choices=['celeba', 'coco'])
+    argparser.add_argument('--size', type=int, default=256, help='image size')
     argparser.add_argument('--n_epochs', type=int, default=5, help='number of epochs')
     argparser.add_argument('--lr', type=float, default=1e-5, help='learning rate')
     argparser.add_argument('--num_workers', type=int, default=0, help='number of workers for dataloader')
@@ -67,18 +69,24 @@ if __name__ == '__main__':
     # --------- Training Loop ---------
     num_epochs = args.n_epochs
 
-    _,_,dataloader = celeb_hq_masked_dataloader(batch_size=args.batch_size, num_workers=args.num_workers, input_shape=256)
-    _,_,dataloader_val = celeb_hq_masked_dataloader(batch_size=args.batch_size, num_workers=args.num_workers, input_shape=256, mode='validation')
+    if args.dataset == 'celeba':
+        _,_,dataloader = celeb_hq_masked_dataloader(batch_size=args.batch_size, num_workers=args.num_workers, input_shape=args.size, mode='train')
+        _,_,dataloader_val = celeb_hq_masked_dataloader(batch_size=args.batch_size, num_workers=args.num_workers, input_shape=args.size, mode='validation')
+    elif args.dataset == 'coco':
+        _,_,dataloader = cocostuff_dataloader(batch_size=args.batch_size, num_workers=args.num_workers, input_shape=args.size, mode='train')
+        _,_,dataloader_val = cocostuff_dataloader(batch_size=args.batch_size, num_workers=args.num_workers, input_shape=args.size, mode='val')
 
     wandb.init(project="VAE-Finetuning",
                 config={
                     "learning_rate": args.lr,
                     "architecture": "VAE",
-                    "dataset": "CelebA",
+                    "dataset": args.dataset,
+                    "input_size": args.size,
                     "epochs": num_epochs,
                     "batch_size": args.batch_size,
+                    "steps": args.n_steps,
                 },
-                name="VAE-Finetuning-CelebA")
+                name=f"VAE-Finetuning-{args.dataset}-{args.size}")
     cnt = 0
     for epoch in tqdm(range(1, num_epochs + 1), desc="Training Epochs"):
         epoch_loss = 0.0
@@ -129,7 +137,7 @@ if __name__ == '__main__':
                 # Save model checkpoint
                 if not os.path.exists(models_dir):
                     os.makedirs(models_dir)
-                torch.save(vae.decoder.state_dict(), os.path.join(models_dir, f"vae_decoder_step_{cnt}.pt"))
+                torch.save(vae.decoder.state_dict(), os.path.join(models_dir, f"vae_decoder_step_{cnt}_{args.dataset}_{args.size}.pt"))
 
             cnt += 1
 
