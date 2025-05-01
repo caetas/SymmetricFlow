@@ -1227,7 +1227,7 @@ class SymmFM(nn.Module):
         :param dataloader: data loader
         '''
         self.model.eval()
-        self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_1000.pt'), weights_only=False))
+        self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_1500.pt'), weights_only=False))
         self.vae.eval()
         gt = []
         pred = []
@@ -1245,8 +1245,6 @@ class SymmFM(nn.Module):
 
             predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
             pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
-            if len(gt) >= 5:
-                break
 
         gt = torch.cat(gt)
         pred = torch.cat(pred)
