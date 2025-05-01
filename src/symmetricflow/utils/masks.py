@@ -67,6 +67,10 @@ def mask_to_class(masks, dataset):
         distances[:, i] = torch.norm(masks - ref_color, dim=1, p=2)  # Shape: (B, H, W)
 
     class_labels = torch.argmin(distances, dim=1)  # Shape: (B, H, W)
+    #plot class_labels[0].cpu().numpy()
+    #plt.imshow(class_labels[0].cpu().numpy())
+    #plt.axis('off')
+    #plt.show()
     return class_labels.long()  # Convert to long type for class labels
 
 

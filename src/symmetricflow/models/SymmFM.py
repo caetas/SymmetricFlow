@@ -1227,12 +1227,14 @@ class SymmFM(nn.Module):
         :param dataloader: data loader
         '''
         self.model.eval()
+        self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_1000.pt'), weights_only=False))
+        self.vae.eval()
         gt = []
         pred = []
         for x, mask in tqdm(dataloader, desc='Evaluating', leave=True):
             x = x.to(self.device)
             mask = mask.to(self.device)
-            mask = self.dequantize_mask(mask)
+            gt.append(mask_to_class(mask, self.args.dataset).cpu())
 
             if self.vae is not None:
                 with torch.no_grad():
@@ -1240,10 +1242,6 @@ class SymmFM(nn.Module):
                         x = torch.cat((x, x, x), dim=1)
                         mask = torch.cat((mask, mask, mask), dim=1)
                     x = self.encode(x).latent_dist.sample().mul_(0.18215)
-                    mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
-                    mask = self.decode(mask / 0.18215).sample
-
-                    gt.append(mask_to_class(mask, self.args.dataset).cpu())
 
             predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
             pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
