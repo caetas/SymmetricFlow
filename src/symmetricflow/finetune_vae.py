@@ -79,6 +79,7 @@ def validation_loss(vae, dataloader_val, criterion, device, pred=False, model=No
 
 
             val_loss += loss.item()* masks.size(0)
+            break
 
     avg_val_loss = val_loss / len(dataloader_val.dataset)
     vae.decoder.train()
@@ -164,8 +165,7 @@ if __name__ == '__main__':
                         images = vae.encode(images).latent_dist.sample().mul_(0.18215)
                         pred_masks = model.segment(images.shape[0], images, train=False, eval=True, fine_tune=True)
                     pred_masks = vae.decode(pred_masks/0.18215).sample
-                    loss += criterion(pred_masks, masks)
-                    loss = loss*0.5
+                    loss = 0.2*loss + 0.8*criterion(pred_masks, masks)
 
             # Backpropagate only through decoder
             optimizer.zero_grad()
@@ -174,7 +174,7 @@ if __name__ == '__main__':
 
             epoch_loss += loss.item()* masks.size(0)
             
-            if cnt % 500 == 0:
+            if cnt % 200 == 0:
                 # Log validation loss
                 val_loss = validation_loss(vae, dataloader_val, criterion, device)
                 wandb.log({"validation_loss": val_loss})
