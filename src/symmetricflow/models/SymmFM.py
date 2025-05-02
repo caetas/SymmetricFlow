@@ -1230,7 +1230,7 @@ class SymmFM(nn.Module):
         :param dataloader: data loader
         '''
         self.model.eval()
-        self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_5000_coco_384_mse.pt'), weights_only=False))
+        #self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_5000_coco_384_mse.pt'), weights_only=False))
         self.vae.eval()
         gt = []
         pred = []
@@ -1259,6 +1259,9 @@ class SymmFM(nn.Module):
 
         miou = metric(pred, gt)
 
+        print(f"mIoU: {miou.item()}")
+
+        miou = metric(gt, pred)
         print(f"mIoU: {miou.item()}")
 
         # creaste a directory to save the results
