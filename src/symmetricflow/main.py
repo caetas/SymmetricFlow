@@ -21,6 +21,8 @@ if __name__ == '__main__':
             _, _, dataloader_val = cocostuff_dataloader(16, args.num_workers, 'val', args.size)
 
         model = SymmFM(args, image_shape, channels)
+        if args.checkpoint is not None:
+            model.load_checkpoint(args.checkpoint)
         model.train_model(dataloader, dataloader_val)
 
     elif args.sample:
