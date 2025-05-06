@@ -1250,9 +1250,6 @@ class SymmFM(nn.Module):
             predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
             pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
 
-            if len(gt) >= 5:
-                break
-
         gt = torch.cat(gt)
         pred = torch.cat(pred)
 
