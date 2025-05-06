@@ -1253,7 +1253,7 @@ class SymmFM(nn.Module):
         pred = torch.cat(pred)
 
         if self.args.dataset == 'coco':
-            metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
+            metric = JaccardIndex(task='multiclass', num_classes=172)
         else:
             metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
 
