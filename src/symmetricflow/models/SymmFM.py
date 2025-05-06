@@ -26,6 +26,7 @@ import cv2
 from utils.masks import mask_to_class
 from torchmetrics import JaccardIndex
 from lpips import LPIPS
+from sklearn.metrics import jaccard_score
 
 # PyTorch 1.7 has SiLU, but we support PyTorch 1.5.
 class SiLU(nn.Module):
@@ -1249,11 +1250,14 @@ class SymmFM(nn.Module):
             predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
             pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
 
+            if len(gt) >= 5:
+                break
+
         gt = torch.cat(gt)
         pred = torch.cat(pred)
 
         if self.args.dataset == 'coco':
-            metric = JaccardIndex(task='multiclass', num_classes=172)
+            metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
         else:
             metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
 
@@ -1263,6 +1267,17 @@ class SymmFM(nn.Module):
 
         miou = metric(gt, pred)
         print(f"mIoU: {miou.item()}")
+
+        gt_flat = gt.view(-1).cpu().numpy()
+        pred_flat = pred.view(-1).cpu().numpy()
+        miou = jaccard_score(gt_flat, pred_flat, average='macro')
+        print(f"mIoU: {miou}")
+        #ignore index 171
+        if self.args.dataset == 'coco':
+            miou = jaccard_score(gt_flat, pred_flat, average='macro', labels=[i for i in range(171)])
+        else:
+            miou = jaccard_score(gt_flat, pred_flat, average='macro', labels=[i for i in range(1,19)])
+        print(f"mIoU: {miou}")
 
         # creaste a directory to save the results
         if not os.path.exists('./../../results'):
