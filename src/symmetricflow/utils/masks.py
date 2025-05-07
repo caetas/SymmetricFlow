@@ -45,11 +45,10 @@ def mask_to_class(masks, dataset):
 
     elif dataset == 'coco':
         color_list = build_palette(6, 50)  # Assuming build_palette returns a list of RGB colors
-        #color_list = color_list[:171] + color_list[-1:]  # Trim specific indices
-        color_list = color_list[:182] + color_list[-1:]  # Trim specific indices
-        # remove these indices 
-        remove = [11, 25, 28, 29, 44, 65, 67, 68, 70, 82, 90]
-        color_list = [color_list[i] for i in range(len(color_list)) if i not in remove]
+        color_list = color_list[:171] + color_list[-1:]  # Trim specific indices
+        #color_list = color_list[:182] + color_list[-1:]  # Trim specific indices 
+        #remove = [11, 25, 28, 29, 44, 65, 67, 68, 70, 82, 90]
+        #color_list = [color_list[i] for i in range(len(color_list)) if i not in remove]
         color_list = torch.tensor(color_list, dtype=torch.float32, device=masks.device)  # Convert to tenso
     
     '''
@@ -77,16 +76,15 @@ def mask_to_class(masks, dataset):
     #plt.show()
     return class_labels.long()  # Convert to long type for class labels
 
-
 #def mask_to_class(masks, dataset):
-    '''
-    Converts a mask to a class label
-    Args:
-        masks: torch.Tensor
-        dataset: str
-    Returns:
-        torch.Tensor: class labels
-    '''
+'''
+Converts a mask to a class label
+Args:
+    masks: torch.Tensor
+    dataset: str
+Returns:
+    torch.Tensor: class labels
+'''
 '''
     # convert masks to numpy arrays, and then normalize them from 0,1 to 255 as integers
     masks = masks.numpy()
