@@ -26,6 +26,7 @@ import cv2
 from utils.masks import mask_to_class
 from torchmetrics import JaccardIndex
 from lpips import LPIPS
+from sklearn.metrics import jaccard_score
 
 # PyTorch 1.7 has SiLU, but we support PyTorch 1.5.
 class SiLU(nn.Module):
@@ -1018,7 +1019,7 @@ class SymmFM(nn.Module):
         plt.close(fig)
 
     @torch.no_grad()
-    def segment(self, n_samples, x, train=True, accelerate=None, eval=False):
+    def segment(self, n_samples, x, train=True, accelerate=None, eval=False, fine_tune=False):
         '''
         Segment images
         :param n_samples: number of samples
@@ -1056,6 +1057,9 @@ class SymmFM(nn.Module):
             samples = x_0
 
         samples = samples[:, self.channels:]
+
+        if fine_tune:
+            return samples
         
         if self.vae is not None:
             samples = self.decode(samples / 0.18215).sample
@@ -1227,6 +1231,8 @@ class SymmFM(nn.Module):
         :param dataloader: data loader
         '''
         self.model.eval()
+        #self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_5000_coco_384_mse.pt'), weights_only=False))
+        self.vae.eval()
         gt = []
         pred = []
         for x, mask in tqdm(dataloader, desc='Evaluating', leave=True):
@@ -1255,6 +1261,20 @@ class SymmFM(nn.Module):
         miou = metric(pred, gt)
 
         print(f"mIoU: {miou.item()}")
+
+        miou = metric(gt, pred)
+        print(f"mIoU: {miou.item()}")
+
+        gt_flat = gt.view(-1).cpu().numpy()
+        pred_flat = pred.view(-1).cpu().numpy()
+        miou = jaccard_score(gt_flat, pred_flat, average='macro')
+        print(f"mIoU: {miou}")
+        #ignore index 171
+        if self.args.dataset == 'coco':
+            miou = jaccard_score(gt_flat, pred_flat, average='macro', labels=[i for i in range(171)])
+        else:
+            miou = jaccard_score(gt_flat, pred_flat, average='macro', labels=[i for i in range(1,19)])
+        print(f"mIoU: {miou}")
 
         # creaste a directory to save the results
         if not os.path.exists('./../../results'):

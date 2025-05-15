@@ -11,7 +11,7 @@ from torchvision import datasets
 from config import data_raw_dir
 import zipfile
 import os
-
+from glob import glob
 
 class ADE20KDataset(Dataset):
     def __init__(self, transform_fn, mask_transform_fn, mode='train', size=256):
@@ -354,6 +354,7 @@ class CocoStuffDataset(Dataset):
         self.masks_ids = sorted(self.masks_ids)
         '''
         self.palette = build_palette(6, 50)
+        self.mappings = self.build_mapping()
         self.size = size
 
         print(f'Found {len(self.images)} images and {len(self.masks)} masks in the {mode} dataset')
@@ -407,14 +408,198 @@ class CocoStuffDataset(Dataset):
         mask = np.array(mask)
         mask = mask.squeeze()
         colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+        #change this to get the original mask colors
         for unique in np.unique(mask):
+            colored_mask[mask == unique] = self.palette[self.mappings[unique]]
+            '''
             if unique == 255:
                 unique = len(self.palette) - 1
                 colored_mask[mask == 255] = self.palette[unique]
             else:
                 colored_mask[mask == unique] = self.palette[unique]
+            '''
         return Image.fromarray(colored_mask)
-    
+
+    def build_mapping(self):
+        '''
+        Builds the mapping from the original mask to the new mask
+        Returns:
+            dict: mapping
+        '''
+        mappings = {0 : 0 ,
+            1 : 1 ,
+            2 : 2 ,
+            3 : 3 ,
+            4 : 4 ,
+            5 : 5 ,
+            6 : 6 ,
+            7 : 7 ,
+            8 : 8 ,
+            9 : 9 ,
+            10 : 10 ,
+            12 : 11 ,
+            13 : 12 ,
+            14 : 13 ,
+            15 : 14 ,
+            16 : 15 ,
+            17 : 16 ,
+            18 : 17 ,
+            19 : 18 ,
+            20 : 19 ,
+            21 : 20 ,
+            22 : 21 ,
+            23 : 22 ,
+            24 : 23 ,
+            26 : 24 ,
+            27 : 25 ,
+            30 : 26 ,
+            31 : 27 ,
+            32 : 28 ,
+            33 : 29 ,
+            34 : 30 ,
+            35 : 31 ,
+            36 : 32 ,
+            37 : 33 ,
+            38 : 34 ,
+            39 : 35 ,
+            40 : 36 ,
+            41 : 37 ,
+            42 : 38 ,
+            43 : 39 ,
+            45 : 40 ,
+            46 : 41 ,
+            47 : 42 ,
+            48 : 43 ,
+            49 : 44 ,
+            50 : 45 ,
+            51 : 46 ,
+            52 : 47 ,
+            53 : 48 ,
+            54 : 49 ,
+            55 : 50 ,
+            56 : 51 ,
+            57 : 52 ,
+            58 : 53 ,
+            59 : 54 ,
+            60 : 55 ,
+            61 : 56 ,
+            62 : 57 ,
+            63 : 58 ,
+            64 : 59 ,
+            66 : 60 ,
+            69 : 61 ,
+            71 : 62 ,
+            72 : 63 ,
+            73 : 64 ,
+            74 : 65 ,
+            75 : 66 ,
+            76 : 67 ,
+            77 : 68 ,
+            78 : 69 ,
+            79 : 70 ,
+            80 : 71 ,
+            81 : 72 ,
+            83 : 73 ,
+            84 : 74 ,
+            85 : 75 ,
+            86 : 76 ,
+            87 : 77 ,
+            88 : 78 ,
+            89 : 79 ,
+            91 : 80 ,
+            92 : 81 ,
+            93 : 82 ,
+            94 : 83 ,
+            95 : 84 ,
+            96 : 85 ,
+            97 : 86 ,
+            98 : 87 ,
+            99 : 88 ,
+            100 : 89 ,
+            101 : 90 ,
+            102 : 91 ,
+            103 : 92 ,
+            104 : 93 ,
+            105 : 94 ,
+            106 : 95 ,
+            107 : 96 ,
+            108 : 97 ,
+            109 : 98 ,
+            110 : 99 ,
+            111 : 100 ,
+            112 : 101 ,
+            113 : 102 ,
+            114 : 103 ,
+            115 : 104 ,
+            116 : 105 ,
+            117 : 106 ,
+            118 : 107 ,
+            119 : 108 ,
+            120 : 109 ,
+            121 : 110 ,
+            122 : 111 ,
+            123 : 112 ,
+            124 : 113 ,
+            125 : 114 ,
+            126 : 115 ,
+            127 : 116 ,
+            128 : 117 ,
+            129 : 118 ,
+            130 : 119 ,
+            131 : 120 ,
+            132 : 121 ,
+            133 : 122 ,
+            134 : 123 ,
+            135 : 124 ,
+            136 : 125 ,
+            137 : 126 ,
+            138 : 127 ,
+            139 : 128 ,
+            140 : 129 ,
+            141 : 130 ,
+            142 : 131 ,
+            143 : 132 ,
+            144 : 133 ,
+            145 : 134 ,
+            146 : 135 ,
+            147 : 136 ,
+            148 : 137 ,
+            149 : 138 ,
+            150 : 139 ,
+            151 : 140 ,
+            152 : 141 ,
+            153 : 142 ,
+            154 : 143 ,
+            155 : 144 ,
+            156 : 145 ,
+            157 : 146 ,
+            158 : 147 ,
+            159 : 148 ,
+            160 : 149 ,
+            161 : 150 ,
+            162 : 151 ,
+            163 : 152 ,
+            164 : 153 ,
+            165 : 154 ,
+            166 : 155 ,
+            167 : 156 ,
+            168 : 157 ,
+            169 : 158 ,
+            170 : 159 ,
+            171 : 160 ,
+            172 : 161 ,
+            173 : 162 ,
+            174 : 163 ,
+            175 : 164 ,
+            176 : 165 ,
+            177 : 166 ,
+            178 : 167 ,
+            179 : 168 ,
+            180 : 169 ,
+            181 : 170 ,
+            255 : len(self.palette) - 1}
+        return mappings  
+
 
 def cocostuff_dataloader(batch_size, num_workers, mode='train', input_shape=None):
     '''
@@ -445,6 +630,118 @@ def cocostuff_dataloader(batch_size, num_workers, mode='train', input_shape=None
     dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=(mode != 'train'))
 
     return input_shape, 3, dataloader
+
+class SurgeSAMDataset(Dataset):
+    def __init__(self, transform_fn, mask_transform_fn, mode='train', size=256):
+        '''
+        Initializes the SurgeSAMDataset
+        Args:
+            transform_fn: function
+            mode: str
+        '''
+        self.images = glob(os.path.join(data_raw_dir, "SurgeSAM_processed", "*", "*", "*", "images", "*.jpg"))
+        self.images.sort()
+        val_videos = ['s8k98gGeFf0.mp4', 'watch#v=xEps8nqblY0.mp4']
+        if mode == 'train':
+            self.images = [img for img in self.images if not any(video in img for video in val_videos)]
+        elif mode == 'val':
+            self.images = [img for img in self.images if any(video in img for video in val_videos)]
+        
+        self.masks = [img.replace("images", "machine_masks").replace(".jpg", ".png") for img in self.images]
+        self.transform_fn = transform_fn
+        self.mask_transform_fn = mask_transform_fn
+        self.size = size
+        self.mode = mode
+        self.palette = build_palette(4, 75)
+
+    def __len__(self):
+        '''
+        Returns the length of the dataset
+        Returns:
+            int
+        '''
+        return len(self.images)
+    
+    def __getitem__(self, idx):
+        '''
+        Returns the image and mask at the given index
+        Args:
+            idx: int
+        Returns:
+            image: torch.Tensor
+            mask: torch.Tensor
+        '''
+        image = Image.open(self.images[idx]).convert('RGB')
+        mask = Image.open(self.masks[idx]).convert('L')
+
+        # Find smallest dimension
+        min_dim = min(image.size)
+
+        # Randomly choose a starting point within the allowed range for both width and height
+        left = np.random.randint(0, image.size[0] - min_dim + 1) if image.size[0] > min_dim else 0
+        top = np.random.randint(0, image.size[1] - min_dim + 1) if image.size[1] > min_dim else 0
+
+        right = left + min_dim
+        bottom = top + min_dim
+
+        # Apply the random crop
+        image = image.crop((left, top, right, bottom))
+        mask = mask.crop((left, top, right, bottom))
+        # resize the image and mask to the input_shape
+        image = image.resize((self.size, self.size))
+        mask = mask.resize((self.size, self.size), resample=Image.NEAREST)
+        image = self.transform_fn(image)
+        mask = self.mask_to_color(mask)
+        mask = self.mask_transform_fn(mask)
+        if self.mode == 'train':
+            # flip the image and mask horizontally with a 50% chance
+            if np.random.rand() > 0.5:
+                image = torch.flip(image, [-1])
+                mask = torch.flip(mask, [-1])
+        return image, mask
+
+    def mask_to_color(self, mask):
+        mask = np.array(mask)
+        mask = mask.squeeze()
+        colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+        for unique in np.unique(mask):
+            if unique == 255:
+                unique = len(self.palette) - 1
+                colored_mask[mask == 255] = self.palette[unique]
+            else:
+                colored_mask[mask == unique] = self.palette[unique]
+        return Image.fromarray(colored_mask)
+    
+def surge_sam_dataloader(batch_size, num_workers, mode='train', input_shape=None):
+    '''
+    Returns a DataLoader for the SurgeSAMDataset
+    Args:
+        batch_size: int
+        num_workers: int
+        mode: str
+        input_shape: int
+    Returns:
+        DataLoader
+    '''
+    transform = transforms.Compose([
+        transforms.Resize((input_shape, input_shape)) if input_shape is not None else transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
+    transform_mask = transforms.Compose([
+        transforms.Resize((input_shape, input_shape), interpolation=transforms.InterpolationMode.NEAREST) if input_shape is not None else transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
+    input_shape = input_shape if input_shape is not None else 256
+
+    dataset = SurgeSAMDataset(transform_fn=transform, mask_transform_fn=transform_mask, mode=mode, size=input_shape)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=(mode != 'train'))
+
+    return input_shape, 3, dataloader
+        
 
 
 def mnist_train_loader(batch_size, normalize = False, input_shape = None, num_workers = 0):

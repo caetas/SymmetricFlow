@@ -1,4 +1,4 @@
---extra-index-url https://download.pytorch.org/whl/cu121
+--extra-index-url https://download.pytorch.org/whl/cu126
 # Update often the projects requirements. Please run the following command with .venv activated
 # $ source .venv/bin/activate
 # $ pip3 freeze > requirements/requirements.txt
@@ -27,3 +27,5 @@ opencv-python
 scikit-learn
 torchmetrics
 lpips
+seaborn
+medmnist

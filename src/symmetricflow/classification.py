@@ -1,4 +1,4 @@
-from data.Dataloaders import mnist_train_loader, mnist_val_loader, cifar10_train_loader, cifar10_val_loader
+from data.Dataloaders import *
 from utils.util import parse_args_SymmetricFlowMatchingClass
 from models.SymmFMClass import SymmFMClass
 import torch
@@ -34,6 +34,8 @@ if __name__ == '__main__':
         labels = torch.arange(0, args.num_samples).to(model.device) % args.n_classes
         mask = model.dequantize_class(labels)
         mask = mask.to(model.device)
+        if model.vae is not None:
+            mask = model.encode(mask).latent_dist.sample().mul_(0.18215)
         model.sample(args.num_samples, mask=mask, train=False)
 
     elif args.classification:
