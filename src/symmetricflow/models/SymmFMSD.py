@@ -47,8 +47,8 @@ def update_ema(ema_model, model, decay=0.5):
 
 def sd_null_condition():
     text = ""
-    text_encoder = CLIPTextModel.from_pretrained("stable-diffusion-v1-5/stable-diffusion-v1-5", subfolder="text_encoder")
-    tokenizer = CLIPTokenizer.from_pretrained("stable-diffusion-v1-5/stable-diffusion-v1-5", subfolder="tokenizer")
+    text_encoder = CLIPTextModel.from_pretrained("stabilityai/stable-diffusion-2-1", subfolder="text_encoder")
+    tokenizer = CLIPTokenizer.from_pretrained("stabilityai/stable-diffusion-2-1", subfolder="tokenizer")
     with torch.no_grad():
         empty_inputs = tokenizer(text, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
         emptyembed = text_encoder(empty_inputs.input_ids)[0]
@@ -90,7 +90,7 @@ class UNetModel(nn.Module):
     def __init__(self,):
         super().__init__()
 
-        self.unet = UNet2DConditionModel.from_pretrained("stable-diffusion-v1-5/stable-diffusion-v1-5", subfolder="unet")
+        self.unet = UNet2DConditionModel.from_pretrained("stabilityai/stable-diffusion-2-1", subfolder="unet")
         # the first and last layer have 4 channels, they should have 8, but keep the weights, just double them
         def double_conv_weights(layer):
             if isinstance(layer, nn.Conv2d):
