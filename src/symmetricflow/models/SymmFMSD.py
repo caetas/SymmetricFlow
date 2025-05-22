@@ -276,9 +276,9 @@ class SymmFMSD(nn.Module):
             return samples
 
         samples = samples*0.5 + 0.5
-        samples = samples.clamp(0, 1)
+        samples = samples.clamp(0, 1).float()
         mask = mask*0.5 + 0.5
-        mask = mask.clamp(0, 1)
+        mask = mask.clamp(0, 1).float()
         
         fig = plt.figure(figsize=(20, 10))
         grid_mask = make_grid(mask, nrow=int(n_samples**0.5), padding=0)
@@ -349,9 +349,9 @@ class SymmFMSD(nn.Module):
             return samples
 
         samples = samples*0.5 + 0.5
-        samples = samples.clamp(0, 1)
+        samples = samples.clamp(0, 1).float()
         x = x*0.5 + 0.5
-        x = x.clamp(0, 1)
+        x = x.clamp(0, 1).float()
 
         # plot two grids side by side, one with the original image and the other with the segmented image
         fig = plt.figure(figsize=(20, 10))
@@ -513,6 +513,10 @@ class SymmFMSD(nn.Module):
         self.model.eval()
         #self.vae.decoder.load_state_dict(torch.load(os.path.join(models_dir, 'vae_decoder_step_5000_coco_384_mse.pt'), weights_only=False))
         self.vae.eval()
+
+        accelerate = Accelerator()
+        self.model, self.vae, dataloader = accelerate.prepare(self.model, self.vae, dataloader)
+
         gt = []
         pred = []
         for x, mask in tqdm(dataloader, desc='Evaluating', leave=True):
@@ -520,15 +524,17 @@ class SymmFMSD(nn.Module):
             mask = mask.to(self.device)
             gt.append(mask_to_class(mask, self.args.dataset).cpu())
 
-            if self.vae is not None:
-                with torch.no_grad():
-                    if x.shape[1] == 1:
-                        x = torch.cat((x, x, x), dim=1)
-                        mask = torch.cat((mask, mask, mask), dim=1)
-                    x = self.encode(x).latent_dist.sample().mul_(0.18215)
+            with accelerate.autocast():
 
-            predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
-            pred.append(mask_to_class(predicted_masks, self.args.dataset).cpu())
+                if self.vae is not None:
+                    with torch.no_grad():
+                        if x.shape[1] == 1:
+                            x = torch.cat((x, x, x), dim=1)
+                            mask = torch.cat((mask, mask, mask), dim=1)
+                        x = self.encode(x).latent_dist.sample().mul_(0.18215)
+
+                predicted_masks = self.segment(x.shape[0], x, train=False, eval=True)
+            pred.append(mask_to_class(predicted_masks.float(), self.args.dataset).cpu())
 
         gt = torch.cat(gt)
         pred = torch.cat(pred)
@@ -597,6 +603,9 @@ class SymmFMSD(nn.Module):
         lpips_loss = LPIPS(net='alex').to(self.device)
         lpips_loss.eval()
 
+        accelerate = Accelerator()
+        self.model, self.vae, dataloader = accelerate.prepare(self.model, self.vae, dataloader)
+
         for image, mask in tqdm(dataloader, desc='FID Sampling', leave=True):
             image = image.to(self.device)
             mask = mask.to(self.device)
@@ -605,14 +614,17 @@ class SymmFMSD(nn.Module):
             # dequantize the mask
             mask = self.dequantize_mask(mask)
 
-            if self.vae is not None:
-                with torch.no_grad():
-                    if image.shape[1] == 1:
-                        mask = torch.cat((mask, mask, mask), dim=1)
-                    mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
-            
+            with accelerate.autocast():
 
-            samples = self.sample(mask.shape[0], mask, train=False, fid=True)
+                if self.vae is not None:
+                    with torch.no_grad():
+                        if image.shape[1] == 1:
+                            mask = torch.cat((mask, mask, mask), dim=1)
+                        mask = self.encode(mask).latent_dist.mode().mul_(0.18215)
+                
+
+                samples = self.sample(mask.shape[0], mask, train=False, fid=True)
+            samples = samples.float()
 
             # get lpips loss between samples and image
             loss = lpips_loss(samples, image).mean()
@@ -634,6 +646,7 @@ class SymmFMSD(nn.Module):
         # save the lpips total mean to a file
         with open(f'./../../fid_samples/{self.dataset}/fm_{self.solver_lib}_solver_{self.solver}_stepsize_{self.step_size}_ep{ep}/lpips_total.txt', 'w') as f:
             f.write(str(np.mean(lpips_total)))
+        print(f"LPIPS: {np.mean(lpips_total)}")
             
         '''
 

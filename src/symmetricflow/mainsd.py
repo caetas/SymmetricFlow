@@ -2,6 +2,7 @@ from data.Dataloaders import celeb_hq_masked_dataloader, cityscapes_dataloader, 
 from utils.util import parse_args_SymmetricFlowMatching
 from models.SymmFMSD import SymmFMSD
 import torch
+from accelerate import Accelerator
 
 if __name__ == '__main__':
     args = parse_args_SymmetricFlowMatching()
@@ -37,22 +38,28 @@ if __name__ == '__main__':
 
         model = SymmFMSD(args, image_shape, channels)
         model.load_checkpoint(args.checkpoint)
-        # get a batch from loader
-        x, mask = next(iter(dataloader))
-        x = x.to(model.device)
-        mask = model.dequantize_mask(mask)
-        mask = mask.to(model.device)
-        if model.vae is not None:
-            with torch.no_grad():
-                # if x has one channel, make it 3 channels
-                if x.shape[1] == 1:
-                    x = torch.cat((x, x, x), dim=1)
-                    mask = torch.cat((mask, mask, mask), dim=1)
-                x = model.encode(x).latent_dist.sample().mul_(0.18215)
-                mask = model.encode(mask).latent_dist.mode().mul_(0.18215)
-        
-        model.sample(args.num_samples, mask, train=False)
-        model.segment(args.num_samples, x, train=False)
+
+        #### Sample with mixed precision if required ####
+        accelerate = Accelerator()
+        model.model, model.vae, dataloader = accelerate.prepare(model.model, model.vae, dataloader)
+
+        with accelerate.autocast():
+            # get a batch from loader
+            x, mask = next(iter(dataloader))
+            x = x.to(model.device)
+            mask = model.dequantize_mask(mask)
+            mask = mask.to(model.device)
+            if model.vae is not None:
+                with torch.no_grad():
+                    # if x has one channel, make it 3 channels
+                    if x.shape[1] == 1:
+                        x = torch.cat((x, x, x), dim=1)
+                        mask = torch.cat((mask, mask, mask), dim=1)
+                    x = model.encode(x).latent_dist.sample().mul_(0.18215)
+                    mask = model.encode(mask).latent_dist.mode().mul_(0.18215)
+            
+            model.sample(args.num_samples, mask, train=False)
+            model.segment(args.num_samples, x, train=False)
     
     elif args.eval:
         if args.dataset == 'celeba':
