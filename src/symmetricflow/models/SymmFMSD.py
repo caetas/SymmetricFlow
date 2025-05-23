@@ -611,6 +611,7 @@ class SymmFMSD(nn.Module):
             mask = mask.to(self.device)
             # repeat mask 17 times
             mask = mask.repeat(17, 1, 1, 1)
+            image = image.repeat(17, 1, 1, 1)
             # dequantize the mask
             mask = self.dequantize_mask(mask)
 
