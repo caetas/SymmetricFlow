@@ -1255,8 +1255,10 @@ class SymmFM(nn.Module):
 
         if self.args.dataset == 'coco':
             metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
+            pred[gt == 171] = 171
         else:
             metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
+            pred[gt == 0] = 0
 
         miou = metric(pred, gt)
 

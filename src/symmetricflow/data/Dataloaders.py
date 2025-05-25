@@ -165,7 +165,7 @@ def celeb_hq_masked_dataloader(batch_size, num_workers, mode='train', input_shap
         return examples
 
     dataset = CelebHQMaskedDataset(transform_fn=transform_fn, mode=mode)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=True if mode != 'train' else False)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=False)
 
     return input_shape, 3, dataloader
 
@@ -301,7 +301,7 @@ def cityscapes_dataloader(batch_size, num_workers, mode='train', input_shape=Non
 
 
     dataset = CityscapesDataset(transform=transform, transform_mask=transform_mask, mode=mode, input_shape=input_shape if input_shape is not None else 256)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=(mode != 'train'))
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=False)
 
     return input_shape, 3, dataloader
 
