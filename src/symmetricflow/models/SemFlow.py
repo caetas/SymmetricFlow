@@ -580,11 +580,17 @@ class SemFlow(nn.Module):
         accelerate = Accelerator()
         self.model, self.vae, dataloader = accelerate.prepare(self.model, self.vae, dataloader)
 
+        if self.dataset == 'coco':
+            reps = 10
+        else:
+            reps = 17
+
         for image, mask in tqdm(dataloader, desc='FID Sampling', leave=True):
             image = image.to(self.device)
             mask = mask.to(self.device)
             # repeat mask 17 times
-            mask = mask.repeat(17, 1, 1, 1)
+            mask = mask.repeat(reps, 1, 1, 1)
+            image = image.repeat(reps, 1, 1, 1)
             # dequantize the mask
             mask = self.dequantize_mask(mask)
 
