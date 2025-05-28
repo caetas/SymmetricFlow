@@ -542,27 +542,15 @@ class SymmFMSD(nn.Module):
         if self.args.dataset == 'coco':
             metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
             pred[gt == 171] = 171
-        else:
+        elif self.args.dataset == 'celeba':
             metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
             pred[gt == 0] = 0
+        else:
+            metric = JaccardIndex(task='multiclass', num_classes=150)
 
         miou = metric(pred, gt)
 
         print(f"mIoU: {miou.item()}")
-
-        miou = metric(gt, pred)
-        print(f"mIoU: {miou.item()}")
-
-        gt_flat = gt.view(-1).cpu().numpy()
-        pred_flat = pred.view(-1).cpu().numpy()
-        miou = jaccard_score(gt_flat, pred_flat, average='macro')
-        print(f"mIoU: {miou}")
-        #ignore index 171
-        if self.args.dataset == 'coco':
-            miou = jaccard_score(gt_flat, pred_flat, average='macro', labels=[i for i in range(171)])
-        else:
-            miou = jaccard_score(gt_flat, pred_flat, average='macro', labels=[i for i in range(1,19)])
-        print(f"mIoU: {miou}")
 
         # creaste a directory to save the results
         if not os.path.exists('./../../results'):

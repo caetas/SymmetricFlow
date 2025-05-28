@@ -13,90 +13,6 @@ import zipfile
 import os
 from glob import glob
 
-class ADE20KDataset(Dataset):
-    def __init__(self, transform_fn, mask_transform_fn, mode='train', size=256):
-        '''
-        Initializes the ADE20KDataset
-        Args:
-            transform_fn: function
-            mode: str
-        '''
-        self.images = load_dataset('1aurent/ADE20K', split=mode)
-        self.transform_fn = transform_fn
-        self.mask_transform_fn = mask_transform_fn
-        self.size = size
-
-
-    def __len__(self):
-        '''
-        Returns the length of the dataset
-        Returns:
-            int
-        '''
-        return len(self.images)
-    
-    def __getitem__(self, idx):
-        '''
-        Returns the image and mask at the given index
-        Args:
-            idx: int
-        Returns:
-            image: torch.Tensor
-            mask: torch.Tensor
-        '''
-        image = self.images[idx]['image']
-        mask = self.images[idx]['segmentations']
-        # if mask is a list, take the first one
-        if isinstance(mask, list):
-            mask = mask[0]
-        # crop both to the smallest dimension, check if it is height or width, should be a center crop
-        if image.size[0] < image.size[1]:
-            start = np.random.randint(0, image.size[1] - image.size[0])
-            image = image.crop((0, start, image.size[0], start + image.size[0]))
-            mask = mask.crop((0, start, mask.size[0], start + mask.size[0]))
-        elif image.size[0] > image.size[1]:
-            start = np.random.randint(0, image.size[0] - image.size[1])
-            image = image.crop((start, 0, start + image.size[1], image.size[1]))
-            mask = mask.crop((start, 0, start + mask.size[1], mask.size[1]))
-        
-        # resize the image and mask to the input_shape
-        image = image.resize((self.size, self.size))
-        mask = mask.resize((self.size, self.size), resample=Image.NEAREST)
-        image = self.transform_fn(image)
-        mask = self.mask_transform_fn(mask)
-        return image, mask
-    
-def ade20k_dataloader(batch_size, num_workers, mode='train', input_shape=None):
-    '''
-    Returns a DataLoader for the ADE20KDataset
-    Args:
-        batch_size: int
-        num_workers: int
-        mode: str
-        input_shape: int
-    Returns:
-        DataLoader
-    '''
-    transform = transforms.Compose([
-        transforms.Resize((input_shape, input_shape)) if input_shape is not None else transforms.Resize((256, 256)),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ])
-
-    transform_mask = transforms.Compose([
-        transforms.Resize((input_shape, input_shape), interpolation=transforms.InterpolationMode.NEAREST) if input_shape is not None else transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
-        transforms.ToTensor(),
-        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-    ])
-
-    input_shape = input_shape if input_shape is not None else 256
-
-    dataset = ADE20KDataset(transform_fn=transform, mask_transform_fn=transform_mask, mode=mode, size=input_shape)
-    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=(mode != 'train'))
-
-    return input_shape, 3, dataloader
-
-
 class CelebHQMaskedDataset(Dataset):
     def __init__(self, transform_fn, mode='train'):
         '''
@@ -320,6 +236,121 @@ def build_palette(k=6,s=None):
 
     return palette
 
+class ADE20KDataset(Dataset):
+    def __init__(self, transform_fn, mask_transform_fn, mode='train', size=256):
+        '''
+        Initializes the ADE20KDataset
+        Args:
+            transform_fn: function
+            mode: str
+        '''
+        if mode == 'train':
+            mode = 'training'
+        elif mode == 'val':
+            mode = 'validation'
+        self.file_path = os.path.join(data_raw_dir, 'ADEChallengeData2016', f'images' ,f'{mode}')
+        self.masks_file_path = os.path.join(data_raw_dir, 'ADEChallengeData2016', f'annotations' ,f'{mode}')
+        self.transform_fn = transform_fn
+        self.mode = mode
+        self.image_ids = []
+        self.mask_transform_fn = mask_transform_fn
+        self.masks_ids = []
+        self.image_list = os.listdir(self.file_path)
+        self.masks = os.listdir(self.masks_file_path)
+        self.images = [os.path.join(self.file_path, image) for image in self.image_list]
+        #masks have the same name as the images but with a different extension (.png)
+        self.masks = [os.path.join(self.masks_file_path, image.replace('.jpg', '.png')) for image in self.image_list]
+        self.size = size
+        self.palette = build_palette(6, 50)
+        print(f'Found {len(self.images)} images and {len(self.masks)} masks in the {mode} dataset')
+
+
+    def __len__(self):
+        '''
+        Returns the length of the dataset
+        Returns:
+            int
+        '''
+        return len(self.images)
+    
+    def __getitem__(self, idx):
+        '''
+        Returns the image and mask at the given index
+        Args:
+            idx: int
+        Returns:
+            image: torch.Tensor
+            mask: torch.Tensor
+        '''
+        image = Image.open(self.images[idx]).convert('RGB')
+        mask = Image.open(self.masks[idx]).convert('L')
+        # if mask is a list, take the first one
+        if isinstance(mask, list):
+            mask = mask[0]
+        # crop both to the smallest dimension, check if it is height or width, should be a center crop
+        if image.size[0] < image.size[1]:
+            start = np.random.randint(0, image.size[1] - image.size[0])
+            image = image.crop((0, start, image.size[0], start + image.size[0]))
+            mask = mask.crop((0, start, mask.size[0], start + mask.size[0]))
+        elif image.size[0] > image.size[1]:
+            start = np.random.randint(0, image.size[0] - image.size[1])
+            image = image.crop((start, 0, start + image.size[1], image.size[1]))
+            mask = mask.crop((start, 0, start + mask.size[1], mask.size[1]))
+        
+        # resize the image and mask to the input_shape
+        image = image.resize((self.size, self.size))
+        mask = mask.resize((self.size, self.size), resample=Image.NEAREST)
+        mask = self.mask_to_color(mask)
+        image = self.transform_fn(image)
+        mask = self.mask_transform_fn(mask)
+        return image, mask
+    
+    def mask_to_color(self, mask):
+        mask = np.array(mask)
+        mask = mask.squeeze()
+        colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
+        #change this to get the original mask colors
+        for unique in np.unique(mask):
+            colored_mask[mask == unique] = self.palette[unique]
+            '''
+            if unique == 255:
+                unique = len(self.palette) - 1
+                colored_mask[mask == 255] = self.palette[unique]
+            else:
+                colored_mask[mask == unique] = self.palette[unique]
+            '''
+        return Image.fromarray(colored_mask)
+    
+def ade20k_dataloader(batch_size, num_workers, mode='train', input_shape=None):
+    '''
+    Returns a DataLoader for the ADE20KDataset
+    Args:
+        batch_size: int
+        num_workers: int
+        mode: str
+        input_shape: int
+    Returns:
+        DataLoader
+    '''
+    transform = transforms.Compose([
+        transforms.Resize((input_shape, input_shape)) if input_shape is not None else transforms.Resize((256, 256)),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
+    transform_mask = transforms.Compose([
+        transforms.Resize((input_shape, input_shape), interpolation=transforms.InterpolationMode.NEAREST) if input_shape is not None else transforms.Resize((256, 256), interpolation=transforms.InterpolationMode.NEAREST),
+        transforms.ToTensor(),
+        transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
+    ])
+
+    input_shape = input_shape if input_shape is not None else 256
+
+    dataset = ADE20KDataset(transform_fn=transform, mask_transform_fn=transform_mask, mode=mode, size=input_shape)
+    dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True, drop_last=False)
+
+    return input_shape, 3, dataloader
+
 class CocoStuffDataset(Dataset):
     
     def __init__(self, transform_fn, mask_transform_fn, mode='train', size=256):
@@ -341,18 +372,6 @@ class CocoStuffDataset(Dataset):
         self.images = [os.path.join(self.file_path, image) for image in self.image_list]
         #masks have the same name as the images but with a different extension (.png)
         self.masks = [os.path.join(self.masks_file_path, image.replace('.jpg', '.png')) for image in self.image_list]
-        '''
-        with zipfile.ZipFile(self.zip_file_path, 'r') as f:
-            for file in f.namelist():
-                if file.endswith('.jpg'):
-                    self.image_ids.append(file)
-        with zipfile.ZipFile(self.masks_zip_file_path, 'r') as f:
-            for file in f.namelist():
-                if file.endswith('.png') and file.startswith(self.mode):
-                    self.masks_ids.append(file)
-        self.image_ids = sorted(self.image_ids)
-        self.masks_ids = sorted(self.masks_ids)
-        '''
         self.palette = build_palette(6, 50)
         self.mappings = self.build_mapping()
         self.size = size
