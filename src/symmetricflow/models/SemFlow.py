@@ -582,6 +582,8 @@ class SemFlow(nn.Module):
 
         if self.dataset == 'coco':
             reps = 10
+        elif self.dataset == 'ade20k':
+            reps = 25
         else:
             reps = 17
 

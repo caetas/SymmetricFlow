@@ -261,7 +261,7 @@ class ADE20KDataset(Dataset):
         #masks have the same name as the images but with a different extension (.png)
         self.masks = [os.path.join(self.masks_file_path, image.replace('.jpg', '.png')) for image in self.image_list]
         self.size = size
-        self.palette = build_palette(6, 50)
+        self.palette = build_palette(6, 50)      
         print(f'Found {len(self.images)} images and {len(self.masks)} masks in the {mode} dataset')
 
 
@@ -311,15 +311,14 @@ class ADE20KDataset(Dataset):
         colored_mask = np.zeros((mask.shape[0], mask.shape[1], 3), dtype=np.uint8)
         #change this to get the original mask colors
         for unique in np.unique(mask):
-            colored_mask[mask == unique] = self.palette[unique]
-            '''
-            if unique == 255:
-                unique = len(self.palette) - 1
-                colored_mask[mask == 255] = self.palette[unique]
-            else:
-                colored_mask[mask == unique] = self.palette[unique]
-            '''
+            colored_mask[mask == unique] = self.palette[self.mapping(unique)]
         return Image.fromarray(colored_mask)
+    
+    def mapping(self, index):
+        if index == 0:
+            return len(self.palette) - 1  # background
+        else:
+            return index - 1
     
 def ade20k_dataloader(batch_size, num_workers, mode='train', input_shape=None):
     '''
@@ -430,13 +429,6 @@ class CocoStuffDataset(Dataset):
         #change this to get the original mask colors
         for unique in np.unique(mask):
             colored_mask[mask == unique] = self.palette[self.mappings[unique]]
-            '''
-            if unique == 255:
-                unique = len(self.palette) - 1
-                colored_mask[mask == 255] = self.palette[unique]
-            else:
-                colored_mask[mask == unique] = self.palette[unique]
-            '''
         return Image.fromarray(colored_mask)
 
     def build_mapping(self):

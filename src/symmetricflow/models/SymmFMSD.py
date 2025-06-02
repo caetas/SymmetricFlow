@@ -546,8 +546,8 @@ class SymmFMSD(nn.Module):
             metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
             pred[gt == 0] = 0
         else:
-            pred[gt == 0] = 0
-            metric = JaccardIndex(task='multiclass', num_classes=151, ignore_index=0)
+            pred[gt == 150] = 150
+            metric = JaccardIndex(task='multiclass', num_classes=151, ignore_index=150)
 
         miou = metric(pred, gt)
 
@@ -597,8 +597,10 @@ class SymmFMSD(nn.Module):
 
         if self.dataset == 'coco':
             reps = 10
-        else:
+        elif self.dataset == 'celeba':
             reps = 17
+        else:
+            reps = 25
 
         for image, mask in tqdm(dataloader, desc='FID Sampling', leave=True):
             image = image.to(self.device)
