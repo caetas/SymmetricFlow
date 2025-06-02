@@ -303,6 +303,11 @@ class ADE20KDataset(Dataset):
         mask = self.mask_to_color(mask)
         image = self.transform_fn(image)
         mask = self.mask_transform_fn(mask)
+        if self.mode == 'train' or self.mode == 'training':
+            # flip the image and mask horizontally with a 50% chance
+            if np.random.rand() > 0.5:
+                image = torch.flip(image, [-1])
+                mask = torch.flip(mask, [-1])
         return image, mask
     
     def mask_to_color(self, mask):
