@@ -546,7 +546,8 @@ class SymmFMSD(nn.Module):
             metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
             pred[gt == 0] = 0
         else:
-            metric = JaccardIndex(task='multiclass', num_classes=150)
+            pred[gt == 0] = 0
+            metric = JaccardIndex(task='multiclass', num_classes=151, ignore_index=0)
 
         miou = metric(pred, gt)
 
