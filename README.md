@@ -1,19 +1,18 @@
-# Symmetric Flow
-
-[![Python](https://img.shields.io/badge/python-3.7+-informational.svg)]()
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org)
-[![Imports: isort](https://img.shields.io/badge/%20imports-isort-%231674b1?style=black)](https://pycqa.github.io/isort)
+[![Python](https://img.shields.io/badge/python-3.11+-informational.svg)](https://www.python.org/downloads/release/python-3918/)
 [![documentation](https://img.shields.io/badge/docs-mkdocs%20material-blue.svg?style=flat)](https://mkdocstrings.github.io)
-[![pre-commit](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
-[![mlflow](https://img.shields.io/badge/tracking-mlflow-blue)](https://mlflow.org)
-[![dvc](https://img.shields.io/badge/data-dvc-9cf)](https://dvc.org)
-[![Hydra](https://img.shields.io/badge/Config-Hydra-89b8cd)](https://hydra.cc)
-[![security: bandit](https://img.shields.io/badge/security-bandit-yellow.svg)](https://github.com/PyCQA/bandit)
-[![pytest](https://img.shields.io/badge/pytest-enabled-brightgreen)](https://github.com/pytest-dev/pytest)
-[![conventional-commits](https://img.shields.io/badge/conventional%20commits-1.0.0-yellow)](https://github.com/commitizen-tools/commitizen)
+[![wandb](https://img.shields.io/badge/tracking-wandb-blue)](https://wandb.ai/site)
 
-A short description of the project. No quotes.
+# Symmetrical Flow Matching
+
+<p align="center">
+  <img src="imgs/gen_sf.png" width="100%" alt='Generated samples.'>
+</p>
+
+The official implementation of **Symmetrical Flow Matching: Unified Image Generation, Segmentation, and Classification with Score-Based Generative Models**.
+
+**[Francisco Caetano](https://caetas.github.io)<sup>1</sup>, [Christiaan Viviers](https://scholar.google.com/citations?hl=en&user=wE8xva4AAAAJ)<sup>1</sup>, [Peter H.N. de With](https://www.tue.nl/en/research/researchers/peter-de-with)<sup>1</sup>, [Fons van der Sommen](https://scholar.google.com/citations?user=qFiLkCAAAAAJ&hl=en&oi=ao)<sup>1</sup>**
+
+¹ Eindhoven University of Technology  
 
 ## Prerequisites
 
@@ -24,7 +23,7 @@ You will need:
 - `Make`
 - a `.secrets` file with the required secrets and credentials
 - load environment variables from `.env`
-- `NVIDIA Drivers`(mandatory) and `CUDA >= 12.1` (mandatory if Docker is not used)
+- `NVIDIA Drivers`(mandatory) and `CUDA >= 12.6` (mandatory if Docker/Apptainer is not used)
 - `Weights & Biases` account
 
 ## Installation
@@ -32,25 +31,55 @@ You will need:
 Clone this repository (requires git ssh keys)
 
     git clone --recursive git@github.com:caetas/SymmetricFlow.git
-    cd symmetricflow
+    cd SymmetricFlow
 
-### Using Docker
+### Using Docker or Apptainer
 
-Create the image using the provided [`Dockerfile`](Dockerfile) and then run the container:
+Create a `.secrets` file and add your Weights & Biases API Key:
 
-    docker build --tag symmetricflow .
-    docker create --gpus all --shm-size=1g -i --name symmetricflow_container symmetricflow
-    docker start symmetricflow_container
+    WANDB_API_KEY = <your-wandb-api-key>
+
+#### Docker
+
+Create the image using the provided [`Dockerfile`](Dockerfile)
+
+    docker build --tag symmflow .
+
+Or download it from the Hub:
+
+    docker pull docker://ocaetas/symmflow
+
+Then run the script [`job_docker.sh`](scripts/job_docker.sh) that will execute [`main.sh`](scripts/main.sh):
+
+    cd scripts
+    bash job_docker.sh
 
 To access the shell, please run:
 
-    docker exec -it symmetricflow_container /bin/bash
+    docker run --rm -it --gpus all --ipc=host --env-file .env -v $(pwd)/:/app/ symmflow bash
 
-**Note: Edit the [`Dockerfile`](Dockerfile) if you want to include data or model checkpoints in your image.**
+#### Apptainer
+
+Convert the Docker Image to a `.sif` file:
+
+    apptainer pull symmflow.sif docker://ocaetas/symmflow
+
+Then run the script [`job_apptainer.sh`](scripts/job_apptainer.sh) that will execute [`main.sh`](scripts/main.sh):
+    
+    cd scripts
+    bash job_apptainer.sh
+
+To access the shell, please run:
+
+    apptainer shell --nv --env-file .env --bind $(pwd)/:/app/ symmflow.sif
+
+**Add the flag `--nvccli` if you are using WSL.**
+
+**Note: Edit the [`main.sh`](scripts/main.sh) script if you want to train a different model.**
 
 ### Normal Installation
 
-or if environment already exists
+Create the Conda Environment:
 
     conda env create -f environment.yml
     conda activate python3.11
@@ -82,27 +111,29 @@ To run the code please remember to always activate both environments:
     conda activate python3.11
     .venv-dev/Scripts/Activate.ps1
 
-## Documentation
+## Datasets
 
-Full documentation is available here: [`docs/`](docs).
+### Semantic Image Synthesis and Segmentation
 
-## Dev
+- **CelebAMask-HQ:** Automatically Downloaded.
+- **COCO-Stuff:** Download [`here`](https://github.com/nightrome/cocostuff) and move the dataset to [data/raw](data/raw)
 
-See the [Developer](docs/DEVELOPER.md) guidelines for more information.
+### Classification and Conditional Image Generation
 
-## Contributing
+- **MNIST:** Automatically Downloaded.
+- **CIFAR-10:** Automatically Downloaded.
 
-Contributions of any kind are welcome. Please read [CONTRIBUTING.md](docs/CONTRIBUTING.md]) for details and
-the process for submitting pull requests to us.
+## Training the Models
 
-## Changelog
+In addition to the instructions for using Docker or Apptainer, the documentation for training is available here: [`TRAINING.md`](docs/TRAINING.md).
 
-See the [Changelog](CHANGELOG.md) for more information.
+## Download Pretrained Models
 
-## Security
+The folder containing the pretrained weights of the models used in the paper can be downloaded [`here`]().
 
-Thank you for improving the security of the project, please see the [Security Policy](docs/SECURITY.md)
-for more information.
+## Running and Evaluating the Models
+
+The instructions to run and evaluate the models are available in [`INFERENCE.md`](docs/INFERENCE.md).
 
 ## License
 
@@ -111,12 +142,13 @@ See [LICENSE](LICENSE) for more details.
 
 ## Citation
 
-If you publish work that uses Symmetric Flow, please cite Symmetric Flow as follows:
+If you publish work that uses SymmFlow, please cite SymmFlow as follows:
 
 ```bibtex
-@misc{Symmetric Flow,
-  author = {TUe},
-  title = {A short description of the project. No quotes.},
-  year = {2025},
+@article{caetano2025symmetrical,
+  title={Symmetrical Flow Matching: Unified Image Generation, Segmentation, and Classification with Score-Based Generative Models},
+  author={Caetano, Francisco and Viviers, Christiaan and De With, Peter HN and van der Sommen, Fons},
+  journal={arXiv preprint arXiv:2506.10634},
+  year={2025}
 }
 ```

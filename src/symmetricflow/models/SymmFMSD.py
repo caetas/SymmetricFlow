@@ -29,6 +29,7 @@ from lpips import LPIPS
 from sklearn.metrics import jaccard_score
 from diffusers import UNet2DConditionModel
 from transformers import CLIPTextModel, CLIPTokenizer
+from PIL import Image
 
 @torch.no_grad()
 def update_ema(ema_model, model, decay=0.5):
@@ -228,7 +229,7 @@ class SymmFMSD(nn.Module):
             return self.vae.decode(z)
     
     @torch.no_grad()
-    def sample(self, n_samples, mask, train=True, accelerate=None, fid=False):
+    def sample(self, n_samples, mask, train=True, accelerate=None, fid=False, gui=False, x_0=None):
         '''
         Sample images
         :param n_samples: number of samples
@@ -237,7 +238,8 @@ class SymmFMSD(nn.Module):
         :param accelerate: Accelerator object
         :param fid: if True, return the samples
         '''
-        x_0 = torch.randn(n_samples, self.channels, self.img_size, self.img_size, device=self.device)
+        if x_0 is None:
+            x_0 = torch.randn(n_samples, self.channels, self.img_size, self.img_size, device=self.device)
         x_0 = torch.cat([x_0, mask], dim=1)
 
         if train:
@@ -267,6 +269,9 @@ class SymmFMSD(nn.Module):
             samples = x_0
 
         samples = samples[:, :self.channels]
+
+        if gui:
+            return samples
         
         if self.vae is not None:
             samples = self.decode(samples / 0.18215).sample
@@ -299,7 +304,7 @@ class SymmFMSD(nn.Module):
         plt.close(fig)
 
     @torch.no_grad()
-    def segment(self, n_samples, x, train=True, accelerate=None, eval=False, fine_tune=False):
+    def segment(self, n_samples, x, train=True, accelerate=None, eval=False, fine_tune=False, gui=False):
         '''
         Segment images
         :param n_samples: number of samples
@@ -336,6 +341,10 @@ class SymmFMSD(nn.Module):
                 t -= self.step_size
             samples = x_0
 
+        if gui:
+            #returns noise and mask
+            return samples[:, :self.channels], samples[:, self.channels:]
+        
         samples = samples[:, self.channels:]
 
         if fine_tune:
@@ -505,6 +514,140 @@ class SymmFMSD(nn.Module):
             self.model.load_state_dict(torch.load(checkpoint_path, weights_only=False))
 
     @torch.no_grad()
+    def segment_gui(self, image):
+        '''
+        Segment images for the GUI
+        '''
+        self.model.eval()
+        self.vae.eval()
+        #convert to tensor, scale to [-1, 1] and add batch dimension, the image is a PIL image
+        image = torch.tensor(np.array(image)).permute(2, 0, 1).unsqueeze(0).to(self.device).float() / 127.5 - 1.0
+        if self.vae is not None:
+            with torch.no_grad():
+                if image.shape[1] == 1:
+                    image = torch.cat((image, image, image), dim=1)
+                image = self.encode(image).latent_dist.sample().mul_(0.18215)
+        # segment the image
+        noise, predicted_masks = self.segment(image.shape[0], image, train=False, eval=True, gui=True)
+        predicted_masks = predicted_masks.float()
+        if self.vae is not None:
+            with torch.no_grad():
+                predicted_masks_decoded = self.decode(predicted_masks / 0.18215).sample
+        #predicted_masks_decoded = predicted_masks_decoded*0.5 + 0.5
+        #predicted_masks_decoded = predicted_masks_decoded.clamp(0, 1).float()
+        # convert to numpy and return
+        #predicted_masks_decoded = predicted_masks_decoded.cpu().numpy()
+        # get the channel dimension to the last dimension
+        #predicted_masks_decoded = predicted_masks_decoded.transpose(0, 2, 3, 1)
+        # convert to uint8 and PIL image
+        #predicted_masks_decoded = (predicted_masks_decoded * 255).astype(np.uint8)
+        #predicted_masks_decoded = Image.fromarray(predicted_masks_decoded[0], mode='RGB')
+        return image, noise, predicted_masks, predicted_masks_decoded
+    
+    @torch.no_grad()
+    def sample_gui(self, new_mask, latent_mask, edit_mask, noise, latent_original):
+        #convert mask to tensor, scale to [-1, 1] and add batch dimension
+        if isinstance(new_mask, Image.Image):
+            new_mask = torch.tensor(np.array(new_mask)).permute(2, 0, 1).unsqueeze(0).to(self.device).float() / 127.5 - 1.0
+        elif isinstance(new_mask, np.ndarray):
+            new_mask = torch.tensor(new_mask).permute(2, 0, 1).unsqueeze(0).to(self.device).float() / 127.5 - 1.0
+
+        # add the uniform noise to the mask
+        new_mask = new_mask + (self.beta*(torch.rand_like(new_mask) - 0.5) / 127.5).to(self.device)
+
+        edit_mask = torch.tensor(edit_mask)/255.0
+
+        # resize with nearest neighbor to the size of the new mask // 8
+        edit_mask = F.interpolate(edit_mask.unsqueeze(0).unsqueeze(0), size=(new_mask.shape[2]//8, new_mask.shape[3]//8), mode='bilinear').squeeze(0).squeeze(0).to(self.device)
+        edit_mask = (edit_mask > 0.2).float()  # convert to binary mask
+
+        #dilate mask slightly
+        edit_mask = F.pad(edit_mask.unsqueeze(0), (1, 1, 1, 1), mode='replicate').squeeze(0)
+        edit_mask = F.max_pool2d(edit_mask.unsqueeze(0), kernel_size=3, stride=1, padding=0).squeeze(0)
+        # resize to the size of the new mask// 8
+        edit_mask = F.interpolate(edit_mask.unsqueeze(0).unsqueeze(0), size=(new_mask.shape[2]//8, new_mask.shape[3]//8), mode='nearest').squeeze(0).squeeze(0).to(self.device)
+        # convert to binary mask
+        edit_mask = (edit_mask > 0.5).float()
+
+
+        #plot the edit mask
+        fig = plt.figure(figsize=(5, 5))
+        plt.imshow((edit_mask==0).cpu().numpy(), cmap='gray')
+        plt.axis('off')
+        plt.show()
+
+
+        if self.vae is not None:
+            with torch.no_grad():
+                if new_mask.shape[1] == 1:
+                    new_mask = torch.cat((new_mask, new_mask, new_mask), dim=1)
+                new_mask = self.encode(new_mask).latent_dist.mode().mul_(0.18215)
+        #mask should be the latent mask if that value of edit_mask is 0, else it should be the new_mask
+        #mask = torch.where(edit_mask == 0, latent_mask, new_mask).to(self.device)
+        mask = new_mask.to(self.device)
+
+        # sample the image
+        #samples = self.sample(mask.shape[0], mask, train=False, fid=True, gui=True, x_0=noise)
+        samples = self.aux_sample_gui(mask.shape[0], mask, noise, edit_mask, latent_original)
+        samples = samples.float()
+
+        # latent should be the latent original if that value of edit_mask is 0, else it should be samples
+        #latent = torch.where(edit_mask == 0, latent_original, samples).to(self.device)
+        latent = samples.to(self.device)
+        if self.vae is not None:
+            with torch.no_grad():
+                samples = self.decode(latent / 0.18215).sample
+        samples = samples*0.5 + 0.5
+        samples = samples.clamp(0, 1).float()
+        # convert to numpy and return
+        samples = samples.cpu().numpy()
+        # get the channel dimension to the last dimension
+        samples = samples.transpose(0, 2, 3, 1)
+        # convert to uint8 and PIL image
+        samples = (samples * 255).astype(np.uint8)
+        samples = Image.fromarray(samples[0], mode='RGBA' if samples.shape[-1] == 4 else 'RGB')
+        return samples
+
+    @torch.no_grad()
+    def aux_sample_gui(self, n_samples, mask, x_0, edit_mask, original_x):
+        '''
+        Sample images
+        :param n_samples: number of samples
+        :param mask: mask
+        :param train: if True, sample during training
+        :param accelerate: Accelerator object
+        :param fid: if True, return the samples
+        '''
+        noise = torch.randn(n_samples, self.channels, self.img_size, self.img_size, device=self.device)
+        og_noise = x_0.clone()
+        #print min and max
+        print(f"Min noise: {noise.min().item()}, Max noise: {noise.max().item()}")
+        print(f"Min x_0: {x_0.min().item()}, Max x_0: {x_0.max().item()}")
+        print(f"Min original_x: {original_x.min().item()}, Max original_x: {original_x.max().item()}")
+        print(f"Min mask: {mask.min().item()}, Max mask: {mask.max().item()}")
+        x_0 = torch.where(edit_mask == 0, x_0, noise).to(self.device)
+        x_0 = torch.cat([x_0, mask], dim=1)
+
+        def f(t: float, x):
+            t = torch.full(x.shape[:1], t, device=self.device)
+            replace_x = (1 - (1 - 1e-4) * t[:, None, None, None]) * og_noise + t[:, None, None, None] * original_x
+            x[:,:self.channels] = torch.where(edit_mask == 0, replace_x , x[:,:self.channels])
+            return self.forward(x, t)
+
+        if self.solver_lib == 'torchdiffeq':
+            if self.solver == 'euler' or self.solver == 'rk4' or self.solver == 'midpoint' or self.solver == 'explicit_adams' or self.solver == 'implicit_adams':
+                samples = odeint(f, x_0, t=torch.linspace(0, 1, 2).to(self.device), options={'step_size': self.step_size}, method=self.solver, rtol=1e-5, atol=1e-5)
+            else:
+                samples = odeint(f, x_0, t=torch.linspace(0, 1, 2).to(self.device), method=self.solver, options={'max_num_steps': 1//self.step_size}, rtol=1e-5, atol=1e-5)
+            samples = samples[1]
+        else:
+            print(f"Sampling with {self.solver_lib} library is not supported for auxiliary sampling.")
+
+        samples = samples[:, :self.channels]
+
+        return samples
+
+    @torch.no_grad()
     def evaluate_segmentation(self, dataloader):
         '''
         Evaluate the segmentation
@@ -542,27 +685,16 @@ class SymmFMSD(nn.Module):
         if self.args.dataset == 'coco':
             metric = JaccardIndex(task='multiclass', num_classes=172, ignore_index=171)
             pred[gt == 171] = 171
-        else:
+        elif self.args.dataset == 'celeba':
             metric = JaccardIndex(task='multiclass', num_classes=19, ignore_index=0)
             pred[gt == 0] = 0
+        else:
+            pred[gt == 150] = 150
+            metric = JaccardIndex(task='multiclass', num_classes=151, ignore_index=150)
 
         miou = metric(pred, gt)
 
         print(f"mIoU: {miou.item()}")
-
-        miou = metric(gt, pred)
-        print(f"mIoU: {miou.item()}")
-
-        gt_flat = gt.view(-1).cpu().numpy()
-        pred_flat = pred.view(-1).cpu().numpy()
-        miou = jaccard_score(gt_flat, pred_flat, average='macro')
-        print(f"mIoU: {miou}")
-        #ignore index 171
-        if self.args.dataset == 'coco':
-            miou = jaccard_score(gt_flat, pred_flat, average='macro', labels=[i for i in range(171)])
-        else:
-            miou = jaccard_score(gt_flat, pred_flat, average='macro', labels=[i for i in range(1,19)])
-        print(f"mIoU: {miou}")
 
         # creaste a directory to save the results
         if not os.path.exists('./../../results'):
@@ -608,8 +740,10 @@ class SymmFMSD(nn.Module):
 
         if self.dataset == 'coco':
             reps = 10
-        else:
+        elif self.dataset == 'celeba':
             reps = 17
+        else:
+            reps = 25
 
         for image, mask in tqdm(dataloader, desc='FID Sampling', leave=True):
             image = image.to(self.device)

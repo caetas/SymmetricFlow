@@ -214,6 +214,10 @@ references/
 # Instructions
 src/README.md
 
+#edit image
+src/symmetricflow/edit_image.py
+src/symmetricflow/config.yaml
+
 fid_samples/
 results/
 

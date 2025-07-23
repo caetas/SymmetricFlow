@@ -50,6 +50,11 @@ def mask_to_class(masks, dataset):
         #remove = [11, 25, 28, 29, 44, 65, 67, 68, 70, 82, 90]
         #color_list = [color_list[i] for i in range(len(color_list)) if i not in remove]
         color_list = torch.tensor(color_list, dtype=torch.float32, device=masks.device)  # Convert to tenso
+
+    elif dataset == 'ade20k':
+        color_list = build_palette(6, 50)  # Assuming build_palette returns a list of RGB colors
+        color_list = color_list[:150] + color_list[-1:]  # Trim specific indices
+        color_list = torch.tensor(color_list, dtype=torch.float32, device=masks.device)  # Convert to tensor
     
     '''
     # Reshape color list for broadcasting: (Classes, 3, 1, 1)
@@ -122,4 +127,34 @@ Returns:
 
     return torch.tensor(class_labels, dtype=torch.long)
 
-'''  
+'''
+
+def mask_to_color(masks, dataset):
+    class_labels = mask_to_class(masks, dataset)
+    if dataset == 'celeba':
+        color_list = np.array([
+            [0, 0, 0], [204, 0, 0], [76, 153, 0], [204, 204, 0], [51, 51, 255],
+            [204, 0, 204], [0, 255, 255], [255, 204, 204], [102, 51, 0], [255, 0, 0],
+            [102, 204, 0], [255, 255, 0], [0, 0, 153], [0, 0, 204], [255, 51, 153],
+            [0, 204, 204], [0, 51, 0], [255, 153, 51], [0, 204, 0]
+        ])
+    elif dataset == 'coco':
+        color_list = build_palette(6, 50)
+        color_list = color_list[:170] + color_list[-1:]
+
+    elif dataset == 'ade20k':
+        color_list = build_palette(150, 50)
+        color_list = color_list[:150] + color_list[-1:]
+
+    else:
+        raise ValueError("Unsupported dataset. Use 'celeba', 'coco', or 'ade20k'.")
+    
+    color_list = torch.tensor(color_list, dtype=torch.float32, device=masks.device)  # Convert to tensor
+    
+    # Create a color image based on class labels
+    color_image = torch.zeros((masks.shape[0], 3, masks.shape[2], masks.shape[3]), device=masks.device)
+    for i in range(len(color_list)):
+        color_mask = (class_labels == i).unsqueeze(1).float()  # Shape: (B, 1, H, W)
+        color_image += color_mask * color_list[i].view(1, 3, 1, 1)  # Add color for each class
+
+    return color_image.clamp(0, 255).to(torch.uint8)  # Ensure values are in [0, 255] and convert to uint8
