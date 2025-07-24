@@ -7,7 +7,7 @@
 boto3
 # hydra-core==1.2.0
 loguru
-numpy
+numpy==1.26.4
 psycopg2-binary
 # Python-dotenv reads key-value pairs from a .env file and can set them as environment variables.
 # It helps in the development of applications following the 12-factor (https://12factor.net/) principles.
@@ -32,3 +32,4 @@ gradio
 huggingface-hub
 hf-xet
 pytorch-fid
+transformers==4.52.1

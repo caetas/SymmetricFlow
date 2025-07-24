@@ -50,7 +50,8 @@ If you want to classify images from the test set, you can use:
         --solver_lib torchdiffeq \
         --solver euler \
         --step_size 1 \
-        --beta 4
+        --beta 4 \
+        --checkpoint ../../models/SymmetricalFlowMatchingClass/FM_mnist_beta4.0.pt
 
 ## FID
 
