@@ -8,7 +8,7 @@
   <img src="imgs/gen_sf.png" width="100%" alt='Generated samples.'>
 </p>
 
-The official implementation of **Symmetrical Flow Matching: Unified Image Generation, Segmentation, and Classification with Score-Based Generative Models**.
+The official implementation of [**Symmetrical Flow Matching: Unified Image Generation, Segmentation, and Classification with Score-Based Generative Models**](https://arxiv.org/abs/2506.10634).
 
 **[Francisco Caetano](https://caetas.github.io)<sup>1</sup>, [Christiaan Viviers](https://scholar.google.com/citations?hl=en&user=wE8xva4AAAAJ)<sup>1</sup>, [Peter H.N. de With](https://www.tue.nl/en/research/researchers/peter-de-with)<sup>1</sup>, [Fons van der Sommen](https://scholar.google.com/citations?user=qFiLkCAAAAAJ&hl=en&oi=ao)<sup>1</sup>**
 
