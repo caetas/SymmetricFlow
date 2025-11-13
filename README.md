@@ -1,8 +1,7 @@
-[![Python](https://img.shields.io/badge/python-3.11+-informational.svg)](https://www.python.org/downloads/release/python-3918/)
-[![documentation](https://img.shields.io/badge/docs-mkdocs%20material-blue.svg?style=flat)](https://mkdocstrings.github.io)
+[![Python](https://img.shields.io/badge/python-3.12+-informational.svg)](https://www.python.org/downloads/release/python-3918/)
 [![wandb](https://img.shields.io/badge/tracking-wandb-blue)](https://wandb.ai/site)
 
-# Symmetrical Flow Matching
+# [AAAI 2026] - Symmetrical Flow Matching: Unified Image Generation, Segmentation, and Classification with Score-Based Generative Models
 
 <p align="center">
   <img src="imgs/gen_sf.png" width="100%" alt='Generated samples.'>
@@ -17,10 +16,9 @@ The official implementation of [**Symmetrical Flow Matching: Unified Image Gener
 ## Prerequisites
 
 You will need:
-
-- `python` (see `pyproject.toml` for full version)
+ 
 - `Git`
-- `uv`
+- `uv` (see `pyproject.toml` for full version)
 - a `.secrets` file with the required secrets and credentials
 - load environment variables from `.env`
 - `NVIDIA Drivers`(mandatory) and `CUDA >= 12.8` (mandatory if Docker/Apptainer is not used)
@@ -37,7 +35,7 @@ Clone this repository (requires git ssh keys)
 
 Create the environment and install the dependencies:
 
-    uv sync --python3.12
+    uv sync --python 3.12
 
 #### Activate the environment on Linux
 
@@ -113,7 +111,7 @@ In addition to the instructions for using Docker or Apptainer, the documentation
 
 ## Download Pretrained Models
 
-The folder containing the pretrained weights of the models used in the paper can be downloaded [`here`]().
+The folder containing the pretrained weights of the models used in the paper can be downloaded [`here`](https://huggingface.co/ocaetas/SymmFlow).
 
 ## Running and Evaluating the Models
 
