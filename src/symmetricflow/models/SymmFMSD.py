@@ -270,20 +270,11 @@ class SymmFMSD(nn.Module):
 
         samples = samples[:, :self.channels]
 
-        if torch.cuda.is_available():
-            try:
-                peak_mb = torch.cuda.max_memory_allocated() / (1024 ** 2)
-                print(f"[controlnet] peak VRAM allocated: {peak_mb:.1f} MB")
-            except Exception:
-                pass
-
         if gui:
             return samples
         
         if self.vae is not None:
             samples = self.decode(samples / 0.18215).sample
-            end = time.time()
-            print(f"Time taken: {1000*(end - start)} milliseconds")
             mask = self.decode(mask / 0.18215).sample
 
         if fid:
