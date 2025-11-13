@@ -1,8 +1,9 @@
-[![Python](https://img.shields.io/badge/python-3.11+-informational.svg)](https://www.python.org/downloads/release/python-3918/)
-[![documentation](https://img.shields.io/badge/docs-mkdocs%20material-blue.svg?style=flat)](https://mkdocstrings.github.io)
-[![wandb](https://img.shields.io/badge/tracking-wandb-blue)](https://wandb.ai/site)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
+![uv](https://img.shields.io/badge/uv-%23DE5FE9.svg?style=for-the-badge&logo=uv&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 
-# Symmetrical Flow Matching
+# [AAAI 2026] - Symmetrical Flow Matching: Unified Image Generation, Segmentation, and Classification with Score-Based Generative Models
 
 <p align="center">
   <img src="imgs/gen_sf.png" width="100%" alt='Generated samples.'>
@@ -14,13 +15,16 @@ The official implementation of [**Symmetrical Flow Matching: Unified Image Gener
 
 ¹ Eindhoven University of Technology  
 
+## What is SymmFlow?
+
+SymmFlow is a unified Flow Matching framework that performs semantic image generation, segmentation, and classification within a single model. Instead of treating these tasks separately, it learns bi-directional flows between images and their semantic representations, allowing the model to move from masks or labels to images, and back again, using the same architecture. This symmetry enables efficient conditional generation, one-step segmentation and classification, and high-fidelity image synthesis with only a few inference steps. SymmFlow also supports flexible conditioning, from pixel-level masks to global labels, making it a general framework for vision tasks that require both semantic understanding and generative capability.
+
 ## Prerequisites
 
 You will need:
-
-- `python` (see `pyproject.toml` for full version)
+ 
 - `Git`
-- `uv`
+- `uv` (see `pyproject.toml` for full version)
 - a `.secrets` file with the required secrets and credentials
 - load environment variables from `.env`
 - `NVIDIA Drivers`(mandatory) and `CUDA >= 12.8` (mandatory if Docker/Apptainer is not used)
@@ -37,7 +41,7 @@ Clone this repository (requires git ssh keys)
 
 Create the environment and install the dependencies:
 
-    uv sync --python3.12
+    uv sync --python 3.12
 
 #### Activate the environment on Linux
 
@@ -113,7 +117,7 @@ In addition to the instructions for using Docker or Apptainer, the documentation
 
 ## Download Pretrained Models
 
-The folder containing the pretrained weights of the models used in the paper can be downloaded [`here`]().
+The folder containing the pretrained weights of the models used in the paper can be downloaded [`here`](https://huggingface.co/ocaetas/SymmFlow).
 
 ## Running and Evaluating the Models
 
