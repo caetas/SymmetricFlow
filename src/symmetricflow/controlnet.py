@@ -6,7 +6,7 @@ import numpy as np
 from diffusers.utils import load_image
 import time
 
-image = load_image("https://huggingface.co/lllyasviel/sd-controlnet-hed/blob/main/images/man.png")
+image = load_image("https://huggingface.co/lllyasviel/sd-controlnet-hed/resolve/main/images/man.png")
 image = np.array(image)
 
 low_threshold = 100
