@@ -229,7 +229,7 @@ class SymmFMSD(nn.Module):
             return self.vae.decode(z)
     
     @torch.no_grad()
-    def sample(self, n_samples, mask, train=True, accelerate=None, fid=False, gui=False, x_0=None, start=0):
+    def sample(self, n_samples, mask, train=True, accelerate=None, fid=False, gui=False, x_0=None):
         '''
         Sample images
         :param n_samples: number of samples

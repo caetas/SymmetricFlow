@@ -1,6 +1,7 @@
 ![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
 ![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
 ![uv](https://img.shields.io/badge/uv-%23DE5FE9.svg?style=for-the-badge&logo=uv&logoColor=white)
+![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 
 # [AAAI 2026] - Symmetrical Flow Matching: Unified Image Generation, Segmentation, and Classification with Score-Based Generative Models
 
@@ -13,6 +14,10 @@ The official implementation of [**Symmetrical Flow Matching: Unified Image Gener
 **[Francisco Caetano](https://caetas.github.io)<sup>1</sup>, [Christiaan Viviers](https://scholar.google.com/citations?hl=en&user=wE8xva4AAAAJ)<sup>1</sup>, [Peter H.N. de With](https://www.tue.nl/en/research/researchers/peter-de-with)<sup>1</sup>, [Fons van der Sommen](https://scholar.google.com/citations?user=qFiLkCAAAAAJ&hl=en&oi=ao)<sup>1</sup>**
 
 ¹ Eindhoven University of Technology  
+
+## What is SymmFlow?
+
+SymmFlow is a unified Flow Matching framework that performs semantic image generation, segmentation, and classification within a single model. Instead of treating these tasks separately, it learns bi-directional flows between images and their semantic representations, allowing the model to move from masks or labels to images, and back again, using the same architecture. This symmetry enables efficient conditional generation, one-step segmentation and classification, and high-fidelity image synthesis with only a few inference steps. SymmFlow also supports flexible conditioning, from pixel-level masks to global labels, making it a general framework for vision tasks that require both semantic understanding and generative capability.
 
 ## Prerequisites
 
