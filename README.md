@@ -1,5 +1,6 @@
-[![Python](https://img.shields.io/badge/python-3.12+-informational.svg)](https://www.python.org/downloads/release/python-3918/)
-[![wandb](https://img.shields.io/badge/tracking-wandb-blue)](https://wandb.ai/site)
+![Python](https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=ffdd54)
+![PyTorch](https://img.shields.io/badge/PyTorch-%23EE4C2C.svg?style=for-the-badge&logo=PyTorch&logoColor=white)
+![uv](https://img.shields.io/badge/uv-%23DE5FE9.svg?style=for-the-badge&logo=uv&logoColor=white)
 
 # [AAAI 2026] - Symmetrical Flow Matching: Unified Image Generation, Segmentation, and Classification with Score-Based Generative Models
 
