@@ -3,6 +3,7 @@ from utils.util import parse_args_SymmetricFlowMatching
 from models.SymmFMSD import SymmFMSD
 import torch
 from accelerate import Accelerator
+import time
 
 if __name__ == '__main__':
     args = parse_args_SymmetricFlowMatching()
@@ -56,9 +57,10 @@ if __name__ == '__main__':
                         x = torch.cat((x, x, x), dim=1)
                         mask = torch.cat((mask, mask, mask), dim=1)
                     x = model.encode(x).latent_dist.sample().mul_(0.18215)
+                    start = time.time()
                     mask = model.encode(mask).latent_dist.mode().mul_(0.18215)
             
-            model.sample(args.num_samples, mask, train=False)
+            model.sample(args.num_samples, mask, train=False, start=start)
             model.segment(args.num_samples, x, train=False)
     
     elif args.eval:

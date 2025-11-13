@@ -229,7 +229,7 @@ class SymmFMSD(nn.Module):
             return self.vae.decode(z)
     
     @torch.no_grad()
-    def sample(self, n_samples, mask, train=True, accelerate=None, fid=False, gui=False, x_0=None):
+    def sample(self, n_samples, mask, train=True, accelerate=None, fid=False, gui=False, x_0=None, start=0):
         '''
         Sample images
         :param n_samples: number of samples
@@ -270,11 +270,20 @@ class SymmFMSD(nn.Module):
 
         samples = samples[:, :self.channels]
 
+        if torch.cuda.is_available():
+            try:
+                peak_mb = torch.cuda.max_memory_allocated() / (1024 ** 2)
+                print(f"[controlnet] peak VRAM allocated: {peak_mb:.1f} MB")
+            except Exception:
+                pass
+
         if gui:
             return samples
         
         if self.vae is not None:
             samples = self.decode(samples / 0.18215).sample
+            end = time.time()
+            print(f"Time taken: {1000*(end - start)} milliseconds")
             mask = self.decode(mask / 0.18215).sample
 
         if fid:
