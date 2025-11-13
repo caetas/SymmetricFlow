@@ -6,7 +6,7 @@ import numpy as np
 from diffusers.utils import load_image
 import time
 
-image = load_image("https://huggingface.co/lllyasviel/sd-controlnet-hed/resolve/main/images/bird.png")
+image = load_image("https://huggingface.co/lllyasviel/sd-controlnet-hed/blob/main/images/man.png")
 image = np.array(image)
 
 low_threshold = 100
@@ -43,7 +43,7 @@ if torch.cuda.is_available():
 
 start = time.time()
 
-image = pipe("bird", image, num_inference_steps=20).images[0]
+image = pipe("", image, num_inference_steps=20).images[0]
 
 end = time.time()
 print(f"Time taken: {1000*(end - start)} milliseconds")
