@@ -14,7 +14,7 @@ import torch.nn.functional as F
 from functools import partial
 import math
 import wandb
-from config import models_dir
+from config import models_dir, data_dir
 import os
 from torchdiffeq import odeint
 from diffusers.models import AutoencoderKL
@@ -47,13 +47,19 @@ def update_ema(ema_model, model, decay=0.5):
         ema_params[name].mul_(decay).add_(param.data, alpha=1 - decay)
 
 def sd_null_condition():
+    '''
     text = ""
-    text_encoder = CLIPTextModel.from_pretrained("stabilityai/stable-diffusion-2-1", subfolder="text_encoder")
-    tokenizer = CLIPTokenizer.from_pretrained("stabilityai/stable-diffusion-2-1", subfolder="tokenizer")
+    text_encoder = CLIPTextModel.from_pretrained("Manojb/stable-diffusion-2-1-base", subfolder="text_encoder")
+    tokenizer = CLIPTokenizer.from_pretrained("Manojb/stable-diffusion-2-1-base", subfolder="tokenizer")
     with torch.no_grad():
         empty_inputs = tokenizer(text, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt")
         emptyembed = text_encoder(empty_inputs.input_ids)[0]
     del text_encoder, tokenizer
+    # save emptyembed in a file
+    torch.save(emptyembed, "emptyembed.pt")
+    #load emptyembed from file
+    '''
+    emptyembed = torch.load(os.path.join(models_dir, 'sd_emptyembed.pt'))
     return emptyembed
 
 
@@ -91,7 +97,9 @@ class UNetModel(nn.Module):
     def __init__(self,):
         super().__init__()
 
-        self.unet = UNet2DConditionModel.from_pretrained("stabilityai/stable-diffusion-2-1", subfolder="unet")
+        #self.unet = UNet2DConditionModel.from_pretrained("stabilityai/stable-diffusion-2-1", subfolder="unet")
+        unet_config = UNet2DConditionModel.load_config(os.path.join(models_dir, 'sd_unet_config.json'))
+        self.unet = UNet2DConditionModel.from_config(unet_config)
         # the first and last layer have 4 channels, they should have 8, but keep the weights, just double them
         def double_conv_weights(layer):
             if isinstance(layer, nn.Conv2d):
