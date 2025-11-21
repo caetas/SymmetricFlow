@@ -126,7 +126,7 @@ data/processed
 data/interim
 data/external
 # models directory
-/models/
+models/Symm*
 # test data directory
 test/data
 
