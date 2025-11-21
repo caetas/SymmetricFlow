@@ -168,8 +168,6 @@ dmypy.json
 *.onnx
 # TFlite
 *.tflite
-# Pytorch models
-*.pt
 # TensorRT models
 *.trt
 # Tensorflow checkpoints
